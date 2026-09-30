@@ -94,3 +94,7 @@ bun scratch/fib.ts
 - [How memory and skills reach the model](docs/memory-skills.svg): `remember()` and `TRACE.md`, the parts of `buildSystemPrompt()`, the skill catalog, and how `use_skill` loads a skill during a run.
 
 ![How memory and skills reach the model](docs/memory-skills.svg)
+
+- [How AGENTS.md and skills reach the model](docs/agents-skills.svg): the two steps that load `AGENTS.md` into the system prompt, the two ways a skill enters a run, and how `use_skill` delivers a skill's text as a tool result.
+
+![How AGENTS.md and skills reach the model](docs/agents-skills.svg)
