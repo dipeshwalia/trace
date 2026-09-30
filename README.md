@@ -16,6 +16,7 @@ Set `TRACE_MODEL` to use a model other than the default in `trace/provider.ts`.
 ```sh
 bun demos/1-dice.ts [basic | bad-args | parallel | turn-limit]
 bun demos/2-build.ts [fib | delete-home | delete-folder | escape]
+bun demos/3-context.ts [compact | remember | skill]
 ```
 
 With no argument, each demo lists its scenarios and asks which one to run.
@@ -38,6 +39,9 @@ bun scratch/fib.ts
 - `trace/logger.ts`: prints loop events with colors, a spinner, and usage and cost.
 - `trace/tools.ts`: the core tools (files, edits, shell, search), confined to a working directory.
 - `trace/security.ts`: the policy that blocks dangerous tool calls.
+- `trace/context.ts`: compacts old messages into a summary when history goes over a token budget.
+- `trace/memory.ts`: builds the system prompt and keeps project notes in `TRACE.md`.
+- `trace/skills.ts`: finds skills in `skills/<name>/SKILL.md` and gives the model a `use_skill` tool.
 - `demos/`: runnable examples.
 
 ## Docs
@@ -49,3 +53,7 @@ bun scratch/fib.ts
 - [How Trace checks a tool call](docs/tool-guards.svg): `Policy.check`, the `resolve()` path guard, the bash sandbox, and the six core tools.
 
 ![How Trace checks a tool call](docs/tool-guards.svg)
+
+- [How memory and skills reach the model](docs/memory-skills.svg): `remember()` and `TRACE.md`, the parts of `buildSystemPrompt()`, the skill catalog, and how `use_skill` loads a skill during a run.
+
+![How memory and skills reach the model](docs/memory-skills.svg)

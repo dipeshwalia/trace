@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc"><title id="title">How memory and skills reach the model</title><desc id="desc">trace/memory.ts and trace/skills.ts: TRACE.md and the skill catalog are built into the system prompt by buildSystemPrompt(), and a skill's full SKILL.md arrives only when the model calls use_skill.</desc><metadata id="illustration-style">{"canvas": {"height": 800, "width": 1200}, "fonts": {"display": "Georgia", "labels": "Arial"}, "profile": "plum-apricot", "profile_sha256": "c9eaf17798100dfaf4123094d3d3b1e35a319ef81105a348288f919b4d91d8e6", "profile_version": "1.2", "style_version": 1, "theme": "light"}</metadata><defs><style id="brand-style">text { font-family: 'Arial'; font-size: 24px; fill: #231B21; }
+.title { font-family: 'Georgia'; font-size: 40px; font-weight: 400; }
+.label { font-size: 24px; }
+.small { font-size: 20px; fill: #54494F; }
+.note { font-size: 21px; }
+.section { font-size: 24px; font-weight: 600; fill: #4A2446; }
+.node { fill: #FFFFFF; stroke: #665B61; stroke-width: 2; }
+.focus { fill: #F1E3EF; stroke: #4A2446; stroke-width: 2.5; }
+.highlight { fill: #F2A97A; stroke: #4A2446; stroke-width: 2.5; }
+.panel { fill: #4A2446; stroke: #4A2446; stroke-width: 2; }
+.on-panel { fill: #FFFFFF; }
+.on-highlight { fill: #231B21; }
+.badge { fill: #4A2446; }
+.number { font-size: 19px; fill: #FFFFFF; }
+.arrow { fill: none; stroke: #665B61; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrowhead); }
+.leader { fill: none; stroke: #665B61; stroke-width: 2; stroke-dasharray: 6 5; }
+.line { fill: none; stroke: #665B61; stroke-width: 2; }
+.watermark { font-size: 12px; fill: #54494F; }</style><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#665B61" /></marker></defs><rect id="background" x="0" y="0" width="1200" height="800" fill="#F8F4EF" /><g id="artwork">
+  <g id="heading">
+    <text x="40" y="60" class="title">How memory and skills reach the model</text>
+    <text x="40" y="96" class="small">Both go into the system prompt. Memory is included whole; a skill's full text arrives only when the model asks for it.</text>
+  </g>
+
+  <g id="memory">
+    <rect x="40" y="120" width="346" height="420" rx="12" class="node" />
+    <rect x="40" y="120" width="346" height="44" rx="12" class="panel" />
+    <text x="56" y="150" class="label on-panel">Memory &#183; TRACE.md</text>
+    <text x="56" y="194" class="small">memory.ts &#183; a file in workdir</text>
+
+    <g id="memory-steps">
+      <circle cx="68" cy="225" r="12" class="badge" />
+      <text x="68" y="232" class="number" text-anchor="middle">1</text>
+      <text x="90" y="232" class="small">remember(workdir, note)</text>
+      <circle cx="68" cy="259" r="12" class="badge" />
+      <text x="68" y="266" class="number" text-anchor="middle">2</text>
+      <text x="90" y="266" class="small">appends "- note" to TRACE.md</text>
+      <circle cx="68" cy="293" r="12" class="badge" />
+      <text x="68" y="300" class="number" text-anchor="middle">3</text>
+      <text x="90" y="300" class="small">the file outlives the run</text>
+      <circle cx="68" cy="327" r="12" class="badge" />
+      <text x="68" y="334" class="number" text-anchor="middle">4</text>
+      <text x="90" y="334" class="small">read again at each run start</text>
+    </g>
+
+    <path d="M56 388 H370" class="line" />
+    <g id="memory-example">
+      <text x="56" y="416" class="section">Example TRACE.md</text>
+      <rect x="56" y="430" width="314" height="98" rx="8" class="focus" />
+      <text x="72" y="462" class="small">- The staging server is</text>
+      <text x="86" y="488" class="small">named kestrel; deploys</text>
+      <text x="86" y="514" class="small">happen on Thursdays.</text>
+    </g>
+  </g>
+
+  <g id="system-prompt">
+    <rect x="427" y="120" width="346" height="420" rx="12" class="node" />
+    <rect x="427" y="120" width="346" height="44" rx="12" class="panel" />
+    <text x="443" y="150" class="label on-panel">buildSystemPrompt()</text>
+    <text x="443" y="194" class="small">parts joined by blank lines</text>
+
+    <rect x="443" y="210" width="314" height="62" rx="12" class="node" />
+    <text x="459" y="236" class="label">Base prompt</text>
+    <text x="459" y="260" class="small">who Trace is, how to work</text>
+
+    <rect x="443" y="282" width="314" height="62" rx="12" class="node" />
+    <text x="459" y="308" class="label">Platform + workdir</text>
+    <text x="459" y="332" class="small">OS and real directory path</text>
+
+    <rect x="443" y="354" width="314" height="62" rx="12" class="focus" />
+    <text x="459" y="380" class="label">Project memory</text>
+    <text x="459" y="404" class="small">TRACE.md, if it exists</text>
+
+    <rect x="443" y="426" width="314" height="62" rx="12" class="focus" />
+    <text x="459" y="452" class="label">Skills available</text>
+    <text x="459" y="476" class="small">catalogPrompt() as extra</text>
+
+    <text x="600" y="518" class="small" text-anchor="middle">sent on every model call</text>
+  </g>
+
+  <g id="skills">
+    <rect x="814" y="120" width="346" height="420" rx="12" class="node" />
+    <rect x="814" y="120" width="346" height="44" rx="12" class="panel" />
+    <text x="830" y="150" class="label on-panel">Skills &#183; skills/</text>
+    <text x="830" y="194" class="small">skills.ts &#183; loaded on demand</text>
+
+    <g id="skills-steps">
+      <circle cx="842" cy="225" r="12" class="badge" />
+      <text x="842" y="232" class="number" text-anchor="middle">1</text>
+      <text x="864" y="232" class="small">skills/&lt;name&gt;/SKILL.md</text>
+      <circle cx="842" cy="259" r="12" class="badge" />
+      <text x="842" y="266" class="number" text-anchor="middle">2</text>
+      <text x="864" y="266" class="small">catalog() reads description:</text>
+      <circle cx="842" cy="293" r="12" class="badge" />
+      <text x="842" y="300" class="number" text-anchor="middle">3</text>
+      <text x="864" y="300" class="small">prompt lists name: description</text>
+      <circle cx="842" cy="327" r="12" class="badge" />
+      <text x="842" y="334" class="number" text-anchor="middle">4</text>
+      <text x="864" y="334" class="small">use_skill(name) &#8594; full text</text>
+      <circle cx="842" cy="361" r="12" class="badge" />
+      <text x="842" y="368" class="number" text-anchor="middle">5</text>
+      <text x="864" y="368" class="small">bad name &#8594; ERROR + list</text>
+    </g>
+
+    <path d="M830 388 H1144" class="line" />
+    <g id="skills-example">
+      <text x="830" y="416" class="section">Example SKILL.md</text>
+      <rect x="830" y="430" width="314" height="98" rx="8" class="focus" />
+      <text x="846" y="452" class="small">---</text>
+      <text x="846" y="474" class="small">description: house voice</text>
+      <text x="846" y="496" class="small">---</text>
+      <text x="846" y="518" class="small">Write as a pirate.</text>
+    </g>
+  </g>
+
+  <g id="into-prompt">
+    <path d="M386 385 H441" class="arrow" />
+    <path d="M814 457 H759" class="arrow" />
+  </g>
+
+  <g id="during-run">
+    <text x="40" y="584" class="section">During a run, a skill's body arrives only when the model asks for it</text>
+
+    <rect x="40" y="600" width="250" height="68" rx="12" class="node" />
+    <text x="56" y="628" class="label">System prompt</text>
+    <text x="56" y="654" class="small">memory + skill list</text>
+
+    <rect x="330" y="600" width="250" height="68" rx="12" class="node" />
+    <text x="346" y="628" class="label">Model</text>
+    <text x="346" y="654" class="small">sees a skill that fits</text>
+
+    <rect x="620" y="600" width="250" height="68" rx="12" class="highlight" />
+    <text x="636" y="628" class="label on-highlight">use_skill</text>
+    <text x="636" y="654" class="small on-highlight">readSkill(name)</text>
+
+    <rect x="910" y="600" width="250" height="68" rx="12" class="node" />
+    <text x="926" y="628" class="label">Tool result</text>
+    <text x="926" y="654" class="small">SKILL.md in messages</text>
+
+    <path d="M290 634 H328" class="arrow" />
+    <path d="M580 634 H618" class="arrow" />
+    <path d="M870 634 H908" class="arrow" />
+    <path d="M1035 668 V696 H455 V670" class="arrow" />
+    <text x="745" y="722" class="small" text-anchor="middle">next turn: the model follows the skill</text>
+
+    <text x="40" y="760" class="note">Memory is never compacted. A loaded skill is an ordinary message, so compaction can summarize it away.</text>
+  </g>
+</g><g id="watermark"><text x="1176" y="776" class="watermark" text-anchor="end">Dipesh Walia</text></g></svg>
