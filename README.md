@@ -45,3 +45,7 @@ bun scratch/fib.ts
 - [How runLoop works](docs/runloop.svg): the turn cycle, `step()`, `execute()`, and the events the loop emits.
 
 ![How runLoop works](docs/runloop.svg)
+
+- [How Trace checks a tool call](docs/tool-guards.svg): `Policy.check`, the `resolve()` path guard, the bash sandbox, and the six core tools.
+
+![How Trace checks a tool call](docs/tool-guards.svg)
