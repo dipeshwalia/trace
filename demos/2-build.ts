@@ -6,19 +6,25 @@
  * blocks dangerous calls before they run.
  *
  * Design rules: work in a fresh scratch directory under the OS temp dir, or in
- * TRACE_WORKDIR when set (created if missing); run in yolo mode so only the
- * deny list and the path check stand in the way.
+ * TRACE_WORKDIR when set (created if missing); run in yolo mode by default so
+ * only the deny list and the path check stand in the way.
  * Run with `bun demos/2-build.ts [scenario]`, where scenario is a name or
  * number from SCENARIOS; with no argument it asks in a terminal and runs
- * "fib" otherwise. Set TRACE_MODEL to override the model.
+ * "fib" otherwise. Set TRACE_MODEL to override the model, TRACE_POLICY to
+ * read-only, safe, or yolo, and TRACE_UI=1 to watch in a browser, where safe
+ * mode asks for approval; without the UI, safe mode refuses every write.
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ConsoleLogger } from "../trace/logger.ts";
-import { runLoop } from "../trace/loop.ts";
-import { Policy } from "../trace/security.ts";
+import { type LoopEvent, runLoop } from "../trace/loop.ts";
+import type { Message } from "../trace/provider.ts";
+import { type Mode, Policy } from "../trace/security.ts";
 import { coreTools } from "../trace/tools.ts";
+import { WebLogger } from "../trace/web.ts";
+
+const MODES: Mode[] = ["read-only", "safe", "yolo"];
 
 /** Each scenario checks one step 2 requirement; `setup` prepares the working directory first. */
 type Scenario = { about: string; task: string; setup?: (workdir: string) => void };
@@ -39,6 +45,11 @@ const SCENARIOS: Record<string, Scenario> = {
       mkdirSync(join(workdir, "junk", "nested"), { recursive: true });
       for (const file of ["a.txt", "b.log", "nested/c.txt"]) writeFileSync(join(workdir, "junk", file), "junk\n");
     },
+  },
+  tour: {
+    about: "every core tool once, to see how each one looks in the web UI",
+    task: "Create notes.txt with three short lines about cats, list the files, grep for \"cat\", "
+      + "read notes.txt, change its second line with edit_file, then run wc -l notes.txt with bash",
   },
   escape: {
     about: "a path outside the working directory becomes a PermissionError result",
@@ -69,15 +80,41 @@ mkdirSync(workdir, { recursive: true });
 scenario.setup?.(workdir);
 console.log(`\nscenario ${name}: ${scenario.about}\nworkdir: ${workdir}\ntask: ${scenario.task}\n`);
 
-const policy = new Policy("yolo");
+const mode = (Bun.env.TRACE_POLICY ?? "yolo") as Mode;
+if (!MODES.includes(mode)) {
+  console.error(`Unknown TRACE_POLICY "${mode}". Choose one of: ${MODES.join(", ")}`);
+  process.exit(1);
+}
+const web = Bun.env.TRACE_UI ? new WebLogger() : undefined;
+if (web) console.log(`web UI: ${web.url}\n`);
+
+const system = "You are a coding agent working in a scratch directory. Paths are relative to it. "
+  + "Use the tools to do the work, and check results by running them before you answer.";
+const messages: Message[] = [{ role: "user", text: scenario.task }];
+const tools = coreTools(workdir);
+const model = Bun.env.TRACE_MODEL;
+web?.start({ system, messages, tools, model, info: { scenario: name, workdir, policy: mode } });
+
+const policy = new Policy(mode, web?.approver);
 const logger = new ConsoleLogger();
-const answer = await runLoop({
-  system: "You are a coding agent working in a scratch directory. Paths are relative to it. "
-    + "Use the tools to do the work, and check results by running them before you answer.",
-  messages: [{ role: "user", text: scenario.task }],
-  tools: coreTools(workdir),
-  onEvent: logger.onEvent,
-  beforeTool: policy.check,
-  model: Bun.env.TRACE_MODEL,
-}).finally(() => logger.stop());
-logger.final(answer);
+try {
+  const answer = await runLoop({
+    system,
+    messages,
+    tools,
+    onEvent: (event: LoopEvent) => {
+      logger.onEvent(event);
+      web?.onEvent(event);
+    },
+    beforeTool: policy.check,
+    model,
+  }).finally(() => logger.stop());
+  logger.final(answer);
+  web?.final(answer);
+} catch (err) {
+  if (!web) throw err;
+  web.fail(err);
+  console.error(err);
+  process.exitCode = 1;
+}
+if (web) console.log(`\nweb UI still open at ${web.url} (Ctrl-C to exit)`);

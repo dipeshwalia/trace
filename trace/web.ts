@@ -17,7 +17,7 @@ import { DEFAULT_MODEL, type Message, type ToolCall } from "./provider.ts";
 /** What the page receives: loop events plus run setup, approvals, and the outcome. */
 export type WebEvent =
   | LoopEvent
-  | { kind: "runStart"; system: string; model: string; tools: object[] }
+  | { kind: "runStart"; system: string; model: string; tools: object[]; info: Record<string, string> }
   | { kind: "approval"; call: ToolCall; reason: string }
   | { kind: "approved"; id: string; allow: boolean }
   | { kind: "final"; answer: string }
@@ -55,12 +55,16 @@ export class WebLogger {
     this.url = this.server.url.href;
   }
 
-  /** Show the run's setup. Pass the same `messages` array given to runLoop so the context view stays live. */
-  start({ system, messages, tools, model }: {
-    system: string; messages: Message[]; tools: Record<string, Tool>; model?: string;
+  /**
+   * Show the run's setup. Pass the same `messages` array given to runLoop so the
+   * context view stays live; `info` adds labeled facts such as workdir or policy.
+   */
+  start({ system, messages, tools, model, info = {} }: {
+    system: string; messages: Message[]; tools: Record<string, Tool>; model?: string; info?: Record<string, string>;
   }): void {
     this.messages = messages;
-    this.emit({ kind: "runStart", system, model: model ?? DEFAULT_MODEL, tools: Object.values(tools).map((t) => t.spec.schema) });
+    const schemas = Object.values(tools).map((t) => t.spec.schema);
+    this.emit({ kind: "runStart", system, model: model ?? DEFAULT_MODEL, tools: schemas, info });
   }
 
   /** Pass as runLoop's `onEvent` (or call from a fan-out); an arrow property so it stays bound. */

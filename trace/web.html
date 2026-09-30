@@ -50,7 +50,15 @@
   .tool.ok { border-left-color: var(--ok); }
   .tool.error { border-left-color: var(--err); }
   .tool.blocked { border-left-color: var(--warn); }
-  .tool-head { display: flex; gap: 12px; }
+  .tool-head { display: flex; gap: 12px; align-items: baseline; }
+  .subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .term { background: #0a0c0f; color: #cfe3cf; }
+  .ps { color: var(--ok); user-select: none; }
+  .ln { display: inline-block; min-width: 3.5em; padding-right: 1em; text-align: right; color: var(--dim); user-select: none; }
+  .del { color: var(--err); } .add { color: var(--ok); }
+  .hitfile { color: var(--tool); margin-top: 8px; }
+  .file-row { display: flex; gap: 12px; padding: 2px 0; }
+  .file-row .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .tool-name { color: var(--tool); font-weight: 600; }
   .badge { font-size: 11px; padding: 0 6px; border-radius: 3px; border: 1px solid currentColor; }
   .badge.ok { color: var(--ok); } .badge.error { color: var(--err); }
@@ -83,6 +91,7 @@
     <div id="summary"></div>
   </div>
   <div>
+    <section id="files" hidden><h2>Files</h2><div id="file-list"></div></section>
     <section class="context"><h2>Context <span id="ctx-count"></span></h2><div id="context" class="dim">empty</div></section>
   </div>
 </main>
@@ -118,7 +127,12 @@ function apply(at, e) {
       state.meter = e.meter;
       stage(e.completion.toolCalls.length ? "model asked for tools" : "model answered");
       break;
-    case "toolStart": turn?.tools.push({ call: e.call, at }); stage(`running ${e.call.name}`); break;
+    case "toolStart": {
+      turn?.tools.push({ call: e.call, at });
+      const subject = TOOL_VIEWS[e.call.name]?.subject?.(e.call.args ?? {}) ?? "";
+      stage(`running ${e.call.name} ${subject.length > 60 ? `${subject.slice(0, 60)}…` : subject}`);
+      break;
+    }
     case "approval": {
       const c = card(e.call.id);
       if (c) c.approval = { reason: e.reason, pending: true };
@@ -161,11 +175,58 @@ function renderRun() {
   const tools = r.tools.map((t) => `<div><span class="tool-name">${esc(t.name)}</span> <span class="dim">${esc(t.description)}</span></div>`).join("");
   $("run").innerHTML = `<h2>Run</h2>
     <div>model <b>${esc(r.model)}</b> <span class="dim">· started ${new Date(state.startedAt).toLocaleTimeString()}</span></div>
+    ${Object.entries(r.info ?? {}).map(([k, v]) => `<div><span class="dim">${esc(k)}</span> ${esc(v)}</div>`).join("")}
     ${details("system", "system prompt", `<pre>${esc(r.system)}</pre>`)}
     ${details("tools", `tools offered (${r.tools.length})`, `${tools}<pre>${esc(JSON.stringify(r.tools, null, 2))}</pre>`)}`;
 }
 
-function renderTool(c, key) {
+const lines = (s) => String(s ?? "").replace(/\n$/, "").split("\n");
+const code = (rows) => `<pre>${rows.map(([n, t]) => `<span class="ln">${esc(n)}</span>${esc(t)}`).join("\n")}</pre>`;
+
+function grepHits(result) {
+  const files = new Map();
+  for (const line of lines(result)) {
+    const m = /^(.*?):(\d+): (.*)$/.exec(line);
+    if (!m) return `<pre>${esc(result)}</pre>`;
+    files.set(m[1], [...(files.get(m[1]) ?? []), [m[2], m[3]]]);
+  }
+  return [...files].map(([f, hits]) => `<div class="hitfile">${esc(f)} <span class="dim">${hits.length} hit${hits.length === 1 ? "" : "s"}</span></div>${code(hits)}`).join("");
+}
+
+/** How each core tool shows its subject, arguments, and a successful result; other tools fall back to JSON. */
+const TOOL_VIEWS = {
+  bash: {
+    subject: (a) => `$ ${lines(a.command)[0]}`,
+    args: (a) => `<pre class="term"><span class="ps">$ </span>${esc(a.command)}</pre>${a.timeout ? `<div class="dim">timeout ${esc(a.timeout)}s</div>` : ""}`,
+    result: (r) => `<pre class="term">${esc(r)}</pre>`,
+  },
+  read_file: {
+    subject: (a) => a.path,
+    args: () => "",
+    result: (r) => code(lines(r).map((l) => (/^\d+\t/.test(l) ? [l.slice(0, l.indexOf("\t")), l.slice(l.indexOf("\t") + 1)] : ["", l]))),
+  },
+  write_file: {
+    subject: (a) => `${a.path} · ${lines(a.content).length} lines`,
+    args: (a) => code(lines(a.content).map((t, i) => [i + 1, t])),
+  },
+  edit_file: {
+    subject: (a) => a.path,
+    args: (a) => `<pre>${[...lines(a.old).map((l) => `<span class="del">- ${esc(l)}</span>`), ...lines(a.new).map((l) => `<span class="add">+ ${esc(l)}</span>`)].join("\n")}</pre>`,
+  },
+  list_files: {
+    subject: (a) => a.pattern ?? "**/*",
+    args: () => "",
+  },
+  grep: {
+    subject: (a) => `/${a.regex}/ in ${a.pattern ?? "*"}`,
+    args: () => "",
+    result: grepHits,
+  },
+};
+
+function renderTool(c) {
+  const view = TOOL_VIEWS[c.call.name] ?? {};
+  const a = c.call.args ?? {};
   const status = c.result === undefined ? (c.approval?.pending ? "pending" : "running") : failure(c.result);
   let approval = "";
   if (c.approval?.pending) {
@@ -175,12 +236,34 @@ function renderTool(c, key) {
   } else if (c.approval) {
     approval = `<div class="dim">${c.approval.allow ? "approved" : "denied"} by you</div>`;
   }
-  const result = c.result === undefined ? "" : details(`${key}-result`, `result (${c.result.length} chars)`, `<pre>${esc(c.result)}</pre>`);
+  const args = view.args ? view.args(a) : `<pre>${esc(JSON.stringify(a, null, 2))}</pre>`;
+  let result = "";
+  if (c.result !== undefined) result = status === "ok" && view.result ? view.result(c.result) : `<pre>${esc(c.result)}</pre>`;
   return `<div class="tool ${status}">
     <div class="tool-head"><span class="tool-name">${esc(c.call.name)}</span><span class="badge ${status}">${status}</span>
-      <span class="dim">${c.ms === undefined ? "" : dur(c.ms)}</span><span class="dim">id ${esc(c.call.id)}</span></div>
-    <pre>${esc(JSON.stringify(c.call.args, null, 2))}</pre>${approval}
-    ${c.result !== undefined && c.result.length <= 300 ? `<pre>${esc(c.result)}</pre>` : result}</div>`;
+      <span class="subject">${view.subject ? esc(view.subject(a)) : ""}</span>
+      <span class="dim">${c.ms === undefined ? "" : dur(c.ms)}</span><span class="dim">${esc(c.call.id)}</span></div>
+    ${args}${approval}${result}</div>`;
+}
+
+const FILE_ACTIONS = { read_file: "read", write_file: "wrote", edit_file: "edited" };
+
+function renderFiles() {
+  const files = new Map();
+  for (const t of state.turns) for (const c of t.tools) {
+    const action = FILE_ACTIONS[c.call.name];
+    if (!action || c.result === undefined) continue;
+    const path = String(c.call.args?.path ?? "");
+    const counts = files.get(path) ?? {};
+    const key = failure(c.result) === "ok" ? action : "failed";
+    counts[key] = (counts[key] ?? 0) + 1;
+    files.set(path, counts);
+  }
+  $("files").hidden = !files.size;
+  $("file-list").innerHTML = [...files].map(([path, counts]) => {
+    const tags = Object.entries(counts).map(([k, n]) => `<span class="badge ${k === "failed" ? "error" : k === "read" ? "running" : "ok"}">${k}${n > 1 ? ` ×${n}` : ""}</span>`).join(" ");
+    return `<div class="file-row"><span class="path">${esc(path)}</span>${tags}</div>`;
+  }).join("");
 }
 
 function renderTimeline() {
@@ -195,7 +278,7 @@ function renderTimeline() {
         <span class="dim">${c ? `${esc(c.model)} · ${dur(t.ms)} · in ${u.input} out ${u.output} ${usd(u.cost)}` : "waiting for model…"}</span></div>
       ${reasoning ? details(`r${ti}`, "reasoning", `<pre>${esc(reasoning)}</pre>`) : ""}
       ${c?.text ? `<div class="text">${esc(c.text)}</div>` : ""}
-      ${t.tools.map((tc, i) => renderTool(tc, `t${ti}-${i}`)).join("")}</div>`;
+      ${t.tools.map(renderTool).join("")}</div>`;
   }).join("");
 }
 
@@ -258,7 +341,7 @@ function refreshContext() {
 
 function render() {
   const nearBottom = innerHeight + scrollY >= document.body.scrollHeight - 80;
-  renderStatus(); renderRun(); renderTimeline(); renderSummary();
+  renderStatus(); renderRun(); renderTimeline(); renderSummary(); renderFiles();
   if (nearBottom) scrollTo(0, document.body.scrollHeight);
 }
 
