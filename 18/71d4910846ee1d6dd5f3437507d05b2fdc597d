@@ -1,0 +1,32 @@
+.gitignore
+  s_eeeb1e981760a5::t_4f02e5aaf7017c 3
+demos/2-build.ts
+  s_eeeb1e981760a5::t_82ad19c48dd0a4 17
+  s_eeeb1e981760a5::t_f4f61e5c4eb294 45
+  s_eeeb1e981760a5::t_915bcebae1da84 23-24
+  s_eeeb1e981760a5::t_cabcaa5a0358ba 8-10
+  s_eeeb1e981760a5::t_0b051b718178db 35-42
+  s_eeeb1e981760a5::t_d259ddc3bc4013 69
+  s_eeeb1e981760a5::t_e38b1f162582f4 67-68
+  s_eeeb1e981760a5::t_b6fd5919f9cefd 15
+README.md
+  s_eeeb1e981760a5::t_1fb2ed5577a906 14,21-32
+  s_eeeb1e981760a5::t_f52fa93d774719 39-40
+  s_eeeb1e981760a5::t_699f11b0077218 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1871d4910846ee1d6dd5f3437507d05b2fdc597d",
+  "prompts": {},
+  "sessions": {
+    "s_eeeb1e981760a5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9ab4f420-829d-45cd-ab20-38b85e32ae47",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
