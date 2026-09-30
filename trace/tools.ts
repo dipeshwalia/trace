@@ -6,13 +6,17 @@
  * edits, a shell, and search, all confined to one working directory.
  *
  * Design rules: Bun and Node standard library only; every path goes through
- * resolve(), which throws PermissionError outside the working directory; all
- * parameters are strings; bad input throws or returns an ERROR string, so the
- * loop can hand it back to the model.
+ * resolve(), which throws PermissionError outside the working directory; on
+ * macOS, bash runs under a sandbox-exec profile that blocks reads under the
+ * home directory and writes anywhere outside the working directory (other
+ * platforms run it unconfined); bash never sees the API key; all parameters
+ * are strings; bad input throws or returns an ERROR string, so the loop can
+ * hand it back to the model.
  */
 import { spawn } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readdir } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve as resolvePath, sep } from "node:path";
 import type { Tool } from "./loop.ts";
 
@@ -40,6 +44,39 @@ const OUTPUT_LIMIT = 12000;
 const LIST_LIMIT = 500;
 const GREP_LIMIT = 200;
 const GREP_LINE = 200;
+const SECRET_ENV = ["TRACE_API_KEY", "OPENROUTER_API_KEY"];
+
+/**
+ * A macOS Seatbelt profile for bash. The last matching rule wins: reads under
+ * the home directory are denied except the working directory and Bun's
+ * install, and writes are denied everywhere except the working directory and
+ * a few /dev files. Metadata stays readable so paths inside home resolve.
+ */
+function seatbeltProfile(root: string): string {
+  const q = JSON.stringify;
+  const home = realpathSync(homedir());
+  const bunInstall = dirname(dirname(realpathSync(process.execPath)));
+  return `(version 1)
+(allow default)
+(deny file-read* (subpath ${q(home)}))
+(allow file-read* (subpath ${q(root)}) (subpath ${q(bunInstall)}))
+(allow file-read-metadata)
+(deny file-write*)
+(allow file-write* (subpath ${q(root)}) (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/fd/"))`;
+}
+
+/** The process to spawn for a bash command: sandboxed on macOS, plain sh elsewhere. */
+function shellArgs(root: string, command: string): [string, string[]] {
+  const sh = ["sh", "-c", command];
+  return process.platform === "darwin" ? ["sandbox-exec", ["-p", seatbeltProfile(root), ...sh]] : ["sh", sh.slice(1)];
+}
+
+/** The environment bash runs with: no API keys, and an empty global git config since ~/.gitconfig is unreadable. */
+function shellEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" };
+  for (const name of SECRET_ENV) delete env[name];
+  return env;
+}
 
 /** The six core tools, keyed by name, confined to the real path of `workdir`. */
 export function coreTools(workdir: string): Record<string, Tool> {
@@ -132,15 +169,17 @@ export function coreTools(workdir: string): Record<string, Tool> {
 
   const bash = tool({
     name: "bash",
-    description: "Run a shell command in the working directory; returns stdout and stderr combined",
+    description: "Run a shell command in the working directory; returns stdout and stderr combined"
+      + (process.platform === "darwin" ? ". It cannot read the home directory or write outside the working directory" : ""),
     params: {
       command: { description: "The shell command" },
       timeout: { description: "Seconds before the command is killed (default 120)", optional: true },
     },
     run: ({ command, timeout }) => new Promise<string>((done) => {
       const seconds = Number(timeout ?? 120) || 120;
+      const [file, args] = shellArgs(root, String(command));
       // detached puts sh in its own process group, so a timeout can kill its children too.
-      const child = spawn("sh", ["-c", String(command)], { cwd: root, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn(file, args, { cwd: root, env: shellEnv(), detached: true, stdio: ["ignore", "pipe", "pipe"] });
       let output = "";
       let timedOut = false;
       for (const stream of [child.stdout, child.stderr]) {
