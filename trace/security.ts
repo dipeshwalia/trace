@@ -9,12 +9,14 @@
  * in every mode, before anything else; read tools are always allowed; the
  * default approver refuses, so safe mode fails closed.
  */
+import { homedir } from "node:os";
 import type { ToolCall } from "./provider.ts";
 
 /** Tools that only read, allowed in every mode. */
 export const READ_TOOLS = new Set(["read_file", "list_files", "grep"]);
 
-const HOME_OR_ROOT = String.raw`["']?(?:/|~/?|\$HOME/?|\$\{HOME\}/?)\*?["']?(?=\s|$|[;&|])`;
+const HOME = homedir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const HOME_OR_ROOT = String.raw`["']?(?:/|~/?|\$HOME/?|\$\{HOME\}/?|${HOME}/?)\*?["']?(?=\s|$|[;&|])`;
 
 /** Bash commands that are blocked in every mode, including yolo. */
 export const DENY_PATTERNS: RegExp[] = [
