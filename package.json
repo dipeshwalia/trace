@@ -2,6 +2,13 @@
   "name": "trace",
   "private": true,
   "type": "module",
-  "scripts": { "trace": "bun trace/cli.ts" },
-  "engines": { "bun": ">=1.4.2" }
+  "scripts": {
+    "trace": "bun trace/cli.ts"
+  },
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2"
+  }
 }

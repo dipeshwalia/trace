@@ -1,2 +1,3 @@
 __bun-cache__/
+node_modules/
 .DS_Store
