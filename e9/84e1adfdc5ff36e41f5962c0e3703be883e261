@@ -1,0 +1,26 @@
+.gitignore
+  s_a2bef292e3a226::t_1e0976dedb2864 2
+tsconfig.json
+  s_a2bef292e3a226::t_350527c1d33319 1-3,5-17
+  s_a2bef292e3a226::t_53f938fb855200 4
+bun.lock
+  s_a2bef292e3a226::t_f693f170e52a89 1-21
+package.json
+  s_a2bef292e3a226::t_f16448caab40b5 5-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e984e1adfdc5ff36e41f5962c0e3703be883e261",
+  "prompts": {},
+  "sessions": {
+    "s_a2bef292e3a226": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "652b7889-5ac8-4a6b-87c0-dc6198b6a395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
