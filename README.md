@@ -16,10 +16,43 @@ Set `TRACE_MODEL` to use a model other than the default in `trace/provider.ts`.
 ```sh
 bun demos/1-dice.ts [basic | bad-args | parallel | turn-limit]
 bun demos/2-build.ts [fib | delete-home | delete-folder | escape]
-bun demos/3-context.ts [compact | remember | skill]
+bun demos/3-context.ts [compact | remember | skill | learn | recall | agents | commit]
 ```
 
 With no argument, each demo lists its scenarios and asks which one to run.
+
+`learn` and `recall` share `scratch/memory/TRACE.md`, so memory survives
+between runs. `learn` asks what to remember and `recall` asks what to ask;
+you can also pass the text as an argument. To see it work, run `recall`
+before and after `learn`. `recall` gets no tools, so the model can only know
+the answer from `TRACE.md` in its system prompt:
+
+```sh
+rm -rf scratch/memory
+bun demos/3-context.ts recall "What is my dog's name?"   # does not know
+bun demos/3-context.ts learn "My dog is called Biscuit"  # the model calls remember
+bun demos/3-context.ts recall "What is my dog's name?"   # answers Biscuit
+```
+
+Press Enter at a prompt to use the built-in example instead.
+
+An [AGENTS.md](https://agents.md/) in the working directory goes into the
+system prompt next to `TRACE.md`. `agents` works in `scratch/agents/`. If
+`AGENTS.md` is missing there, it writes an example with a test database port
+and a release approver. If the file already exists, it uses it as it is.
+Then it asks a new session with no tools your question, or one about the
+example. Edit `scratch/agents/AGENTS.md` and ask about what you added:
+
+```sh
+bun demos/3-context.ts agents "What is the staging bucket?"
+```
+
+`commit` writes a commit message for `demos/fixtures/remember-tool.diff`
+twice: once with `demos/skills/commit-message` in the folder and once
+without. Both messages are kept, in
+`scratch/skill-compare/<time>/with/COMMIT_MSG.txt` and
+`scratch/skill-compare/<time>/without/COMMIT_MSG.txt`, and printed side by
+side. Each run gets a new `<time>` folder, so earlier runs are kept.
 
 `2-build.ts` gives the agent files and a shell, confined to a fresh folder
 under the system temp directory; the path is printed as `workdir:`. To keep
@@ -40,7 +73,7 @@ bun scratch/fib.ts
 - `trace/tools.ts`: the core tools (files, edits, shell, search), confined to a working directory.
 - `trace/security.ts`: the policy that blocks dangerous tool calls.
 - `trace/context.ts`: compacts old messages into a summary when history goes over a token budget.
-- `trace/memory.ts`: builds the system prompt and keeps project notes in `TRACE.md`.
+- `trace/memory.ts`: builds the system prompt, reads `AGENTS.md`, and keeps project notes in `TRACE.md`.
 - `trace/skills.ts`: finds skills in `skills/<name>/SKILL.md` and gives the model a `use_skill` tool.
 - `demos/`: runnable examples.
 

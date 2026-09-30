@@ -1,0 +1,27 @@
+diff --git a/trace/memory.ts b/trace/memory.ts
+index 31ef39d..fd21eea 100644
+--- a/trace/memory.ts
++++ b/trace/memory.ts
+@@ -9,6 +9,8 @@
+  */
+ import { appendFileSync, existsSync, readFileSync, realpathSync } from "node:fs";
+ import { join } from "node:path";
++import type { Tool } from "./loop.ts";
++import { tool } from "./tools.ts";
+ 
+ export const MEMORY_FILE = "TRACE.md";
+ 
+@@ -31,3 +33,13 @@ export function remember(workdir: string, note: string): string {
+   appendFileSync(join(workdir, MEMORY_FILE), `- ${note}\n`);
+   return `Remembered in ${MEMORY_FILE}`;
+ }
++
++/** The remember tool, which lets the model save a durable fact for future conversations. */
++export function rememberTool(workdir: string): Tool {
++  return tool({
++    name: "remember",
++    description: "Save a short, durable fact about this project so future conversations know it",
++    params: { note: { description: "One self-contained sentence" } },
++    run: ({ note }) => remember(workdir, String(note)),
++  });
++}
