@@ -1,0 +1,290 @@
+<!doctype html>
+<!--
+  Web view for one Trace run, served by WebLogger (trace/web.ts).
+
+  Concept: the page is a pure function of the event stream. It folds every
+  event from /events into one state object and re-renders from it, so a
+  reload rebuilds the same view from the server's replay.
+
+  Design rules: static HTML with plain JavaScript and CSS, no build step and
+  no dependencies; all model and tool text is escaped before rendering.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trace</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --text: #d8dde6; --dim: #8a93a6;
+    --ok: #4ec38a; --err: #ef6b6b; --warn: #e6b450; --model: #c58af9; --tool: #5cc8e6;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); }
+  header.status {
+    position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: center;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); flex: none; }
+  .dot.busy { background: var(--tool); animation: pulse 1s infinite; }
+  .dot.pending { background: var(--warn); animation: pulse .5s infinite; }
+  .dot.done { background: var(--ok); }
+  .dot.failed { background: var(--err); }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .stage { font-weight: 600; }
+  .dim { color: var(--dim); }
+  .spacer { flex: 1; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+  h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+  pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto;
+        background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+  details > summary { cursor: pointer; color: var(--dim); }
+  .turn { border-left: 2px solid var(--model); padding: 4px 0 4px 12px; margin: 12px 0; }
+  .turn-head { display: flex; gap: 12px; color: var(--model); font-weight: 600; }
+  .turn-head > :first-child { white-space: nowrap; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } .context { position: static; max-height: none; } }
+  .text { margin: 6px 0; white-space: pre-wrap; }
+  .tool { border: 1px solid var(--line); border-left: 3px solid var(--tool); border-radius: 4px; padding: 8px; margin: 8px 0; }
+  .tool.ok { border-left-color: var(--ok); }
+  .tool.error { border-left-color: var(--err); }
+  .tool.blocked { border-left-color: var(--warn); }
+  .tool-head { display: flex; gap: 12px; }
+  .tool-name { color: var(--tool); font-weight: 600; }
+  .badge { font-size: 11px; padding: 0 6px; border-radius: 3px; border: 1px solid currentColor; }
+  .badge.ok { color: var(--ok); } .badge.error { color: var(--err); }
+  .badge.blocked, .badge.pending { color: var(--warn); } .badge.running { color: var(--tool); }
+  .approval { margin-top: 8px; padding: 8px; border: 1px dashed var(--warn); border-radius: 4px; }
+  button { font: inherit; padding: 3px 12px; margin-right: 8px; border-radius: 4px; border: 1px solid var(--line); cursor: pointer; color: var(--bg); }
+  button.allow { background: var(--ok); } button.deny { background: var(--err); }
+  .msg { border-top: 1px solid var(--line); padding: 6px 0; }
+  .role { font-weight: 600; }
+  .role.user { color: var(--warn); } .role.assistant { color: var(--model); } .role.tool { color: var(--tool); }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: 2px 12px 2px 0; }
+  .context { position: sticky; top: 58px; max-height: calc(100vh - 74px); overflow: auto; }
+  .final { border-color: var(--ok); }
+  .failed { border-color: var(--err); }
+</style>
+</head>
+<body>
+<header class="status">
+  <span id="dot" class="dot"></span>
+  <span id="stage" class="stage">connecting…</span>
+  <span id="timer" class="dim"></span>
+  <span class="spacer"></span>
+  <span id="meter" class="dim"></span>
+</header>
+<main>
+  <div>
+    <section id="run"><h2>Run</h2><span class="dim">waiting for the run to start…</span></section>
+    <section><h2>Timeline</h2><div id="timeline" class="dim">no turns yet</div></section>
+    <div id="summary"></div>
+  </div>
+  <div>
+    <section class="context"><h2>Context <span id="ctx-count"></span></h2><div id="context" class="dim">empty</div></section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const usd = (n) => `$${n.toFixed(6)}`;
+const dur = (ms) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);
+const failure = (text) => (text.startsWith("BLOCKED:") ? "blocked" : text.startsWith("ERROR:") ? "error" : "ok");
+
+let state;
+function reset() {
+  state = { run: null, startedAt: null, turns: [], stage: { label: "connected, waiting for events", at: Date.now(), kind: "idle" }, meter: null, final: null, failed: null };
+}
+
+/** Latest card for this call id that has no result yet; ids can repeat across turns. */
+function card(id) {
+  for (let t = state.turns.length - 1; t >= 0; t--)
+    for (let i = state.turns[t].tools.length - 1; i >= 0; i--) {
+      const c = state.turns[t].tools[i];
+      if (c.call.id === id && c.result === undefined) return c;
+    }
+}
+
+function apply(at, e) {
+  const turn = state.turns[state.turns.length - 1];
+  const stage = (label, kind = "busy") => { state.stage = { label, at, kind }; };
+  switch (e.kind) {
+    case "runStart": state.run = e; state.startedAt = at; stage("starting"); break;
+    case "modelStart": state.turns.push({ n: e.turn, at, tools: [] }); stage(`turn ${e.turn}: waiting for model`); break;
+    case "assistant":
+      if (turn) { turn.completion = e.completion; turn.ms = at - turn.at; }
+      state.meter = e.meter;
+      stage(e.completion.toolCalls.length ? "model asked for tools" : "model answered");
+      break;
+    case "toolStart": turn?.tools.push({ call: e.call, at }); stage(`running ${e.call.name}`); break;
+    case "approval": {
+      const c = card(e.call.id);
+      if (c) c.approval = { reason: e.reason, pending: true };
+      stage(`waiting for your approval: ${e.call.name}`, "pending");
+      break;
+    }
+    case "approved": {
+      const c = card(e.id);
+      if (c?.approval) Object.assign(c.approval, { pending: false, allow: e.allow });
+      stage(e.allow ? "approved" : "denied");
+      break;
+    }
+    case "toolEnd": {
+      const c = card(e.call.id);
+      if (c) { c.result = e.result; c.ms = at - c.at; }
+      stage(`${e.call.name} finished`);
+      break;
+    }
+    case "final": state.final = e.answer; stage("done", "done"); break;
+    case "failed": state.failed = e.error; stage("failed", "failed"); break;
+  }
+}
+
+function reasoningText(r) {
+  if (!r?.length) return "";
+  const parts = r.map((d) => d.text ?? d.summary ?? "").filter(Boolean);
+  return parts.length ? parts.join("\n\n") : `(${r.length} encrypted reasoning block${r.length === 1 ? "" : "s"})`;
+}
+
+const open = new Set();
+document.addEventListener("toggle", (ev) => {
+  const key = ev.target.dataset?.key;
+  if (key) ev.target.open ? open.add(key) : open.delete(key);
+}, true);
+const details = (key, label, body) => `<details data-key="${key}"${open.has(key) ? " open" : ""}><summary>${label}</summary>${body}</details>`;
+
+function renderRun() {
+  const r = state.run;
+  if (!r) return;
+  const tools = r.tools.map((t) => `<div><span class="tool-name">${esc(t.name)}</span> <span class="dim">${esc(t.description)}</span></div>`).join("");
+  $("run").innerHTML = `<h2>Run</h2>
+    <div>model <b>${esc(r.model)}</b> <span class="dim">· started ${new Date(state.startedAt).toLocaleTimeString()}</span></div>
+    ${details("system", "system prompt", `<pre>${esc(r.system)}</pre>`)}
+    ${details("tools", `tools offered (${r.tools.length})`, `${tools}<pre>${esc(JSON.stringify(r.tools, null, 2))}</pre>`)}`;
+}
+
+function renderTool(c, key) {
+  const status = c.result === undefined ? (c.approval?.pending ? "pending" : "running") : failure(c.result);
+  let approval = "";
+  if (c.approval?.pending) {
+    approval = `<div class="approval">${esc(c.approval.reason)}<div style="margin-top:6px">
+      <button class="allow" data-approve="${esc(c.call.id)}" data-allow="true">Approve</button>
+      <button class="deny" data-approve="${esc(c.call.id)}" data-allow="false">Deny</button></div></div>`;
+  } else if (c.approval) {
+    approval = `<div class="dim">${c.approval.allow ? "approved" : "denied"} by you</div>`;
+  }
+  const result = c.result === undefined ? "" : details(`${key}-result`, `result (${c.result.length} chars)`, `<pre>${esc(c.result)}</pre>`);
+  return `<div class="tool ${status}">
+    <div class="tool-head"><span class="tool-name">${esc(c.call.name)}</span><span class="badge ${status}">${status}</span>
+      <span class="dim">${c.ms === undefined ? "" : dur(c.ms)}</span><span class="dim">id ${esc(c.call.id)}</span></div>
+    <pre>${esc(JSON.stringify(c.call.args, null, 2))}</pre>${approval}
+    ${c.result !== undefined && c.result.length <= 300 ? `<pre>${esc(c.result)}</pre>` : result}</div>`;
+}
+
+function renderTimeline() {
+  if (!state.turns.length) return;
+  $("timeline").classList.remove("dim");
+  $("timeline").innerHTML = state.turns.map((t, ti) => {
+    const c = t.completion;
+    const u = c?.usage;
+    const reasoning = reasoningText(c?.reasoning);
+    return `<div class="turn">
+      <div class="turn-head"><span>turn ${t.n}</span>
+        <span class="dim">${c ? `${esc(c.model)} · ${dur(t.ms)} · in ${u.input} out ${u.output} ${usd(u.cost)}` : "waiting for model…"}</span></div>
+      ${reasoning ? details(`r${ti}`, "reasoning", `<pre>${esc(reasoning)}</pre>`) : ""}
+      ${c?.text ? `<div class="text">${esc(c.text)}</div>` : ""}
+      ${t.tools.map((tc, i) => renderTool(tc, `t${ti}-${i}`)).join("")}</div>`;
+  }).join("");
+}
+
+function renderSummary() {
+  if (state.failed) { $("summary").innerHTML = `<section class="failed"><h2>Failed</h2><pre>${esc(state.failed)}</pre></section>`; return; }
+  if (state.final === null) return;
+  const runs = {};
+  for (const t of state.turns) for (const c of t.tools) {
+    const r = runs[c.call.name] ?? { calls: 0, failed: 0 };
+    runs[c.call.name] = r;
+    r.calls++;
+    if (c.result !== undefined && failure(c.result) !== "ok") r.failed++;
+  }
+  const toolRows = Object.entries(runs).map(([n, r]) => `<tr><td class="tool-name">${esc(n)}</td><td>×${r.calls}</td><td>${r.failed ? `${r.failed} failed` : ""}</td></tr>`).join("");
+  const modelRows = Object.entries(state.meter?.byModel ?? {}).map(([m, u]) => {
+    const tokens = u.input + u.output;
+    return `<tr><td>${esc(m)}</td><td>in ${u.input}</td><td>out ${u.output}</td><td>${usd(u.cost)}</td><td class="dim">${tokens ? `$${(u.cost / tokens * 1e6).toFixed(2)}/M` : ""}</td></tr>`;
+  }).join("");
+  $("summary").innerHTML = `<section class="final"><h2>Final answer</h2><div class="text">${esc(state.final)}</div>
+    <h2 style="margin-top:12px">Tools</h2>${toolRows ? `<table>${toolRows}</table>` : '<span class="dim">no tool calls</span>'}
+    <h2 style="margin-top:12px">Models</h2><table>${modelRows}</table></section>`;
+}
+
+function renderStatus() {
+  const s = state.stage;
+  $("dot").className = `dot ${s.kind}`;
+  $("stage").textContent = s.label;
+  const m = state.meter;
+  $("meter").textContent = m ? `turns ${m.turn} · in ${m.total.input} out ${m.total.output} · ${usd(m.total.cost)}` : "";
+  tick();
+}
+
+function tick() {
+  const s = state.stage;
+  const total = state.startedAt ? ` · run ${dur(Date.now() - state.startedAt)}` : "";
+  $("timer").textContent = s.kind === "done" || s.kind === "failed" ? "" : `${dur(Date.now() - s.at)}${total}`;
+}
+setInterval(tick, 100);
+
+function renderContext(messages) {
+  $("ctx-count").textContent = `(${messages.length} messages)`;
+  if (!messages.length) return;
+  $("context").classList.remove("dim");
+  $("context").innerHTML = messages.map((m, i) => {
+    let body = m.text ? `<pre>${esc(m.text)}</pre>` : "";
+    if (m.role === "assistant" && m.toolCalls.length) body += m.toolCalls.map((c) => `<div><span class="tool-name">${esc(c.name)}</span> <span class="dim">${esc(JSON.stringify(c.args))}</span></div>`).join("");
+    if (m.reasoning?.length) body += `<div class="dim">+ ${m.reasoning.length} reasoning block(s), echoed back verbatim</div>`;
+    const meta = m.role === "tool" ? ` <span class="dim">${esc(m.name)} · ${esc(m.id)}</span>` : "";
+    return `<div class="msg"><span class="dim">#${i}</span> <span class="role ${m.role}">${m.role}</span>${meta}${body}</div>`;
+  }).join("");
+}
+
+let contextTimer;
+function refreshContext() {
+  clearTimeout(contextTimer);
+  contextTimer = setTimeout(async () => {
+    try { renderContext(await (await fetch("/messages")).json()); } catch {}
+  }, 150);
+}
+
+function render() {
+  const nearBottom = innerHeight + scrollY >= document.body.scrollHeight - 80;
+  renderStatus(); renderRun(); renderTimeline(); renderSummary();
+  if (nearBottom) scrollTo(0, document.body.scrollHeight);
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-approve]");
+  if (!b) return;
+  b.parentElement.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+  await fetch(`/approve/${encodeURIComponent(b.dataset.approve)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allow: b.dataset.allow === "true" }),
+  });
+});
+
+reset();
+const source = new EventSource("/events");
+// The server replays the whole run on every connection, so start clean each time.
+source.onopen = () => { reset(); render(); };
+source.onmessage = (msg) => {
+  const { at, event } = JSON.parse(msg.data);
+  apply(at, event);
+  render();
+  refreshContext();
+};
+source.onerror = () => {
+  state.stage = { label: "disconnected — is the run still going? retrying…", at: Date.now(), kind: "failed" };
+  renderStatus();
+};
+</script>
+</body>
+</html>

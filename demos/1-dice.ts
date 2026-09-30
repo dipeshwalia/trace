@@ -9,9 +9,13 @@
  * the turn cycle is visible. Run with `bun demos/1-dice.ts [scenario]`, where
  * scenario is a name or number from SCENARIOS; with no argument it asks in a
  * terminal and runs "basic" otherwise. Set TRACE_MODEL to override the model.
+ * Set TRACE_UI=1 to also watch the run in a browser; the page stays up until
+ * Ctrl-C.
  */
 import { ConsoleLogger } from "../trace/logger.ts";
-import { runLoop, type Tool } from "../trace/loop.ts";
+import { type LoopEvent, runLoop, type Tool } from "../trace/loop.ts";
+import type { Message, ToolCall } from "../trace/provider.ts";
+import { WebLogger } from "../trace/web.ts";
 
 /** Roll `count` six-sided dice and report each roll and the total. */
 const rollDice: Tool = {
@@ -36,7 +40,7 @@ const rollDice: Tool = {
 };
 
 /** Each scenario drives one loop behavior with the same tool. */
-type Scenario = { about: string; task: string; maxTurns?: number };
+type Scenario = { about: string; task: string; maxTurns?: number; approve?: boolean };
 
 const SCENARIOS: Record<string, Scenario> = {
   basic: {
@@ -55,6 +59,11 @@ const SCENARIOS: Record<string, Scenario> = {
     about: "maxTurns runs out, the loop forces a tool-free wrap-up",
     task: "Roll 1 die per call, one call per turn, 5 times in total, then tell me the sum of all 5 rolls",
     maxTurns: 2,
+  },
+  approve: {
+    about: "every call waits for Approve or Deny in the web UI (needs TRACE_UI=1)",
+    task: "Roll 2 dice, then roll 2 more in a separate call, and tell me both totals. If a roll is denied, say so",
+    approve: true,
   },
 };
 
@@ -78,14 +87,42 @@ const name = choose();
 const scenario = SCENARIOS[name] as Scenario;
 console.log(`\nscenario ${name}: ${scenario.about}\ntask: ${scenario.task}\n`);
 
+const web = Bun.env.TRACE_UI ? new WebLogger() : undefined;
+if (scenario.approve && !web) {
+  console.error(`Scenario "${name}" needs the web UI: run it with TRACE_UI=1.`);
+  process.exit(1);
+}
+if (web) console.log(`web UI: ${web.url}\n`);
+
+const system = "You are a helpful assistant. Use tools when they help.";
+const messages: Message[] = [{ role: "user", text: scenario.task }];
+const tools = { roll_dice: rollDice };
+const model = Bun.env.TRACE_MODEL;
+web?.start({ system, messages, tools, model });
+
 const logger = new ConsoleLogger();
-const answer = await runLoop({
-  system: "You are a helpful assistant. Use tools when they help.",
-  messages: [{ role: "user", text: scenario.task }],
-  tools: { roll_dice: rollDice },
-  onEvent: logger.onEvent,
-  beforeTool: () => undefined,
-  model: Bun.env.TRACE_MODEL,
-  maxTurns: scenario.maxTurns,
-}).finally(() => logger.stop());
-logger.final(answer);
+const beforeTool = web && scenario.approve
+  ? async (call: ToolCall) => ((await web.approver(call, "This scenario asks before every tool call.")) ? undefined : "denied in the web UI")
+  : () => undefined;
+try {
+  const answer = await runLoop({
+    system,
+    messages,
+    tools,
+    onEvent: (event: LoopEvent) => {
+      logger.onEvent(event);
+      web?.onEvent(event);
+    },
+    beforeTool,
+    model,
+    maxTurns: scenario.maxTurns,
+  }).finally(() => logger.stop());
+  logger.final(answer);
+  web?.final(answer);
+} catch (err) {
+  if (!web) throw err;
+  web.fail(err);
+  console.error(err);
+  process.exitCode = 1;
+}
+if (web) console.log(`\nweb UI still open at ${web.url} (Ctrl-C to exit)`);
