@@ -1,0 +1,27 @@
+trace/tools.ts
+  s_bde4692aef3144::t_5b843929948063 19
+  s_bde4692aef3144::t_bdf7882934f955 176
+  s_bde4692aef3144::t_453e9f201b7849 51-54,59-60,64
+  s_bde4692aef3144::t_22c72eea79f7f6 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "87bfc15ba68ca5bcc17a5b61f8b1f67e2d0f0022",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_bde4692aef3144": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "70ad7280-941e-48f4-b01a-e8165b50a00d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
