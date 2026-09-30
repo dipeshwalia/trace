@@ -11,7 +11,7 @@
  */
 
 export const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-export const DEFAULT_MODEL = "google/gemini-3.1-pro-preview";
+export const DEFAULT_MODEL = "google/gemini-3.7-flash";
 
 /** A tool invocation requested by the model. */
 export type ToolCall = { id: string; name: string; args: Record<string, unknown> };
