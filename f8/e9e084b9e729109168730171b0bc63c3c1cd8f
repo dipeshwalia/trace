@@ -1,0 +1,33 @@
+demos/2-build.ts
+  s_bde4692aef3144::t_296e1ab355b4ac 9-10,13-15,21-23,25-27
+  s_bde4692aef3144::t_fcca9a9db84c56 49-53
+  s_bde4692aef3144::t_0cfb04c91d488d 83-98,100-120
+trace/web.ts
+  s_bde4692aef3144::t_3a3731ce19da03 20,58-63,66-67
+trace/web.html
+  s_bde4692aef3144::t_5134101f6addab 184-229
+  s_bde4692aef3144::t_239bbec40eb275 130-135
+  s_bde4692aef3144::t_c38e2bc5b99aba 94
+  s_bde4692aef3144::t_fefad15ff9e7ab 53-61
+  s_bde4692aef3144::t_e8e268bb89a87e 281
+  s_bde4692aef3144::t_828dc8ccc5e846 183
+  s_bde4692aef3144::t_b80b0d289b8885 178
+  s_bde4692aef3144::t_d12a137d9dfea4 239-241,244-266
+  s_bde4692aef3144::t_ce1f0e5806c422 344
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f8e9e084b9e729109168730171b0bc63c3c1cd8f",
+  "prompts": {},
+  "sessions": {
+    "s_bde4692aef3144": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "70ad7280-941e-48f4-b01a-e8165b50a00d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
