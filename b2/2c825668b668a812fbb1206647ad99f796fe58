@@ -1,0 +1,21 @@
+step1.md
+  s_a2bef292e3a226::t_4356056dc17464 7
+trace/index.ts
+  s_a2bef292e3a226::t_85ad1cdf3ec968 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b22c825668b668a812fbb1206647ad99f796fe58",
+  "prompts": {},
+  "sessions": {
+    "s_a2bef292e3a226": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "652b7889-5ac8-4a6b-87c0-dc6198b6a395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
