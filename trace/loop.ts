@@ -1,0 +1,74 @@
+/**
+ * Day 1 loop: the agent turn cycle.
+ *
+ * Concept: an agent is a loop. Ask the model, run the tools it requests, feed
+ * the results back, and stop when it answers without calling a tool.
+ *
+ * Design rules: tool failures become tool results, never crashes; every tool
+ * call gets exactly one result; running out of turns ends with a forced
+ * tool-free answer, not an error.
+ */
+import { complete, type Completion, type Message, type ToolCall, type ToolSpec } from "./provider.ts";
+
+/** A callable tool: the schema shown to the model and the function that runs it. */
+export type Tool = { spec: ToolSpec; run: (args: Record<string, unknown>) => unknown | Promise<unknown> };
+
+/** Progress notifications emitted while the loop runs. */
+export type LoopEvent =
+  | { kind: "assistant"; completion: Completion }
+  | { kind: "toolStart"; call: ToolCall }
+  | { kind: "toolEnd"; call: ToolCall; result: string };
+
+/** Options for runLoop. `messages` is mutated in place and is the live history. */
+export type LoopOptions = {
+  model?: string; system: string; messages: Message[]; tools: Record<string, Tool>;
+  onEvent: (event: LoopEvent) => void;
+  beforeTool: (call: ToolCall) => string | undefined | Promise<string | undefined>;
+  maxTurns?: number; beforeTurn?: (messages: Message[]) => Message[];
+};
+
+/** Run model turns and tool calls until the model answers without tools; return that answer. */
+export async function runLoop(opts: LoopOptions): Promise<string> {
+  const { model, system, messages, tools, onEvent, beforeTool, maxTurns = 80, beforeTurn } = opts;
+  const specs = Object.values(tools).map((t) => t.spec);
+  for (let turn = 0; turn < maxTurns; turn++) {
+    // Replace the contents, not the array, so the caller's reference stays live.
+    if (beforeTurn) messages.splice(0, messages.length, ...beforeTurn(messages));
+    const completion = await step({ model, system, messages, tools: specs }, onEvent);
+    if (!completion.toolCalls.length) return completion.text;
+    for (const call of completion.toolCalls) {
+      onEvent({ kind: "toolStart", call });
+      const text = await execute(call, tools, beforeTool);
+      // Every call id needs a matching tool message, blocked or unknown calls
+      // included, or the provider rejects the next turn.
+      messages.push({ role: "tool", id: call.id, name: call.name, text });
+      onEvent({ kind: "toolEnd", call, result: text });
+    }
+  }
+  messages.push({ role: "user", text: "Turn limit reached; wrap up now." });
+  return (await step({ model, system, messages }, onEvent)).text;
+}
+
+/** Call the model once, append its reply (with reasoning, for the echo) to the history, and emit it. */
+async function step(request: Parameters<typeof complete>[0], onEvent: LoopOptions["onEvent"]): Promise<Completion> {
+  const completion = await complete(request);
+  const { text, toolCalls, reasoning } = completion;
+  request.messages.push({ role: "assistant", text, toolCalls, reasoning });
+  onEvent({ kind: "assistant", completion });
+  return completion;
+}
+
+/** Run one tool call and return its result text. Tool errors become results; they never throw. */
+async function execute(call: ToolCall, tools: LoopOptions["tools"], beforeTool: LoopOptions["beforeTool"]): Promise<string> {
+  const reason = await beforeTool(call);
+  if (reason !== undefined) return `BLOCKED: ${reason}`;
+  const tool = tools[call.name];
+  if (!tool) return `ERROR: unknown tool ${call.name}`;
+  try {
+    const result = await tool.run(call.args);
+    // JSON.stringify(undefined) is undefined, so a tool that returns nothing still yields text.
+    return typeof result === "string" ? result : (JSON.stringify(result) ?? String(result));
+  } catch (err) {
+    return err instanceof Error ? `ERROR: ${err.name}: ${err.message}` : `ERROR: ${String(err)}`;
+  }
+}
