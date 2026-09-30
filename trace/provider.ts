@@ -102,6 +102,9 @@ async function attempt(body: object): Promise<Attempt> {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json", "X-Title": "Trace" },
       body: JSON.stringify(body),
+      // A non-streaming reply is silent until done, so Bun's 5-minute idle
+      // timer would kill long generations; the signal is the real deadline.
+      timeout: false,
       signal: AbortSignal.timeout(600_000),
     });
   } catch (err) {
