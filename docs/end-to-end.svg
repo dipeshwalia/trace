@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc"><title id="title">How a Trace run works, end to end</title><desc id="desc">A demo script builds the system prompt, tools, policy, and loggers once; runLoop then repeats beforeTurn compaction, a model call, a policy check, and tool execution until the model answers without tools. Observers receive every event, and the bottom row shows where each piece of state lives.</desc><metadata id="illustration-style">{"canvas": {"height": 800, "width": 1200}, "fonts": {"display": "Georgia", "labels": "Arial"}, "profile": "plum-apricot", "profile_sha256": "c9eaf17798100dfaf4123094d3d3b1e35a319ef81105a348288f919b4d91d8e6", "profile_version": "1.2", "style_version": 1, "theme": "light"}</metadata><defs><style id="brand-style">text { font-family: 'Arial'; font-size: 24px; fill: #231B21; }
+.title { font-family: 'Georgia'; font-size: 40px; font-weight: 400; }
+.label { font-size: 24px; }
+.small { font-size: 20px; fill: #54494F; }
+.note { font-size: 21px; }
+.section { font-size: 24px; font-weight: 600; fill: #4A2446; }
+.node { fill: #FFFFFF; stroke: #665B61; stroke-width: 2; }
+.focus { fill: #F1E3EF; stroke: #4A2446; stroke-width: 2.5; }
+.highlight { fill: #F2A97A; stroke: #4A2446; stroke-width: 2.5; }
+.panel { fill: #4A2446; stroke: #4A2446; stroke-width: 2; }
+.on-panel { fill: #FFFFFF; }
+.on-highlight { fill: #231B21; }
+.badge { fill: #4A2446; }
+.number { font-size: 19px; fill: #FFFFFF; }
+.arrow { fill: none; stroke: #665B61; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrowhead); }
+.leader { fill: none; stroke: #665B61; stroke-width: 2; stroke-dasharray: 6 5; }
+.line { fill: none; stroke: #665B61; stroke-width: 2; }
+.watermark { font-size: 12px; fill: #54494F; }</style><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#665B61" /></marker></defs><rect id="background" x="0" y="0" width="1200" height="800" fill="#F8F4EF" /><g id="artwork">
+  <g id="heading">
+    <text x="40" y="60" class="title">How a Trace run works, end to end</text>
+    <text x="40" y="96" class="small">A demo sets up the prompt, tools, and policy once. runLoop then repeats one cycle until the model answers without tools.</text>
+  </g>
+
+  <g id="setup">
+    <rect x="40" y="120" width="320" height="480" rx="12" class="node" />
+    <rect x="40" y="120" width="320" height="44" rx="12" class="panel" />
+    <text x="56" y="150" class="label on-panel">1 &#183; Setup</text>
+    <text x="56" y="194" class="small">demos/3-context.ts, once per run</text>
+
+    <g id="setup-steps">
+      <circle cx="68" cy="236" r="12" class="badge" />
+      <text x="68" y="243" class="number" text-anchor="middle">1</text>
+      <text x="90" y="244" class="label">Pick the workdir</text>
+      <text x="90" y="268" class="small">temp or TRACE_WORKDIR</text>
+
+      <circle cx="68" cy="298" r="12" class="badge" />
+      <text x="68" y="305" class="number" text-anchor="middle">2</text>
+      <text x="90" y="306" class="label">buildSystemPrompt()</text>
+      <text x="90" y="330" class="small">base, TRACE.md, skill list</text>
+
+      <circle cx="68" cy="360" r="12" class="badge" />
+      <text x="68" y="367" class="number" text-anchor="middle">3</text>
+      <text x="90" y="368" class="label">Tools</text>
+      <text x="90" y="392" class="small">coreTools + use_skill</text>
+
+      <circle cx="68" cy="422" r="12" class="badge" />
+      <text x="68" y="429" class="number" text-anchor="middle">4</text>
+      <text x="90" y="430" class="label">Policy(mode)</text>
+      <text x="90" y="454" class="small">read-only, safe, or yolo</text>
+
+      <circle cx="68" cy="484" r="12" class="badge" />
+      <text x="68" y="491" class="number" text-anchor="middle">5</text>
+      <text x="90" y="492" class="label">messages = [task]</text>
+      <text x="90" y="516" class="small">the live history</text>
+
+      <circle cx="68" cy="546" r="12" class="badge" />
+      <text x="68" y="553" class="number" text-anchor="middle">6</text>
+      <text x="90" y="554" class="label">Loggers</text>
+      <text x="90" y="578" class="small">console, web if TRACE_UI</text>
+    </g>
+  </g>
+
+  <g id="run-loop">
+    <rect x="390" y="120" width="440" height="480" rx="12" class="node" />
+    <rect x="390" y="120" width="440" height="44" rx="12" class="panel" />
+    <text x="406" y="150" class="label on-panel">2 &#183; runLoop(opts)</text>
+    <text x="406" y="194" class="small">loop.ts &#183; up to maxTurns (80)</text>
+
+    <rect x="430" y="210" width="370" height="56" rx="12" class="focus" />
+    <text x="446" y="234" class="label">beforeTurn &#8594; compact()</text>
+    <text x="446" y="256" class="small">over budget: summary + last 6</text>
+
+    <rect x="430" y="286" width="370" height="56" rx="12" class="node" />
+    <text x="446" y="310" class="label">step() &#8594; complete()</text>
+    <text x="446" y="332" class="small">provider.ts &#8594; OpenRouter</text>
+
+    <rect x="430" y="362" width="370" height="42" rx="12" class="highlight" />
+    <text x="446" y="391" class="label on-highlight">Any tool calls?</text>
+
+    <rect x="430" y="424" width="370" height="56" rx="12" class="node" />
+    <text x="446" y="448" class="label">beforeTool &#8594; Policy.check</text>
+    <text x="446" y="470" class="small">refused: BLOCKED result</text>
+
+    <rect x="430" y="500" width="370" height="56" rx="12" class="node" />
+    <text x="446" y="524" class="label">execute() the tool</text>
+    <text x="446" y="546" class="small">resolve() paths &#183; bash sandbox</text>
+
+    <path d="M615 266 V284" class="arrow" />
+    <path d="M615 342 V360" class="arrow" />
+    <path d="M615 404 V422" class="arrow" />
+    <text x="627" y="418" class="small">yes</text>
+    <path d="M615 480 V498" class="arrow" />
+    <path d="M430 528 H410 V238 H428" class="arrow" />
+    <text x="430" y="584" class="small">results appended, then the next turn</text>
+  </g>
+
+  <g id="observers">
+    <rect x="860" y="120" width="300" height="216" rx="12" class="node" />
+    <rect x="860" y="120" width="300" height="44" rx="12" class="panel" />
+    <text x="876" y="150" class="label on-panel">3 &#183; Observers</text>
+    <text x="876" y="194" class="small">every event, via onEvent</text>
+    <text x="876" y="228" class="small">modelStart &#183; assistant</text>
+    <text x="876" y="254" class="small">toolStart &#183; toolEnd</text>
+    <path d="M876 270 H1144" class="line" />
+    <text x="876" y="298" class="small">ConsoleLogger: terminal</text>
+    <text x="876" y="324" class="small">WebLogger: live page (SSE)</text>
+  </g>
+
+  <g id="exit">
+    <rect x="860" y="352" width="300" height="94" rx="12" class="focus" />
+    <text x="876" y="380" class="label">Final answer</text>
+    <text x="876" y="406" class="small">no tool calls this turn</text>
+    <text x="876" y="430" class="small">turn limit: forced reply</text>
+  </g>
+
+  <g id="approvals">
+    <rect x="860" y="462" width="300" height="138" rx="12" class="node" />
+    <text x="876" y="490" class="label">Safe-mode approver</text>
+    <text x="876" y="518" class="small">asked for non-read tools</text>
+    <text x="876" y="544" class="small">web: Approve or Deny</text>
+    <text x="876" y="570" class="small">no UI: refused</text>
+  </g>
+
+  <g id="links">
+    <path d="M360 238 H388" class="arrow" />
+    <path d="M830 228 H858" class="arrow" />
+    <path d="M800 383 H858" class="arrow" />
+    <text x="844" y="374" class="small" text-anchor="middle">no</text>
+    <path d="M800 470 H858" class="arrow" />
+  </g>
+
+  <g id="state">
+    <text x="40" y="646" class="section">Where state lives</text>
+
+    <rect x="40" y="662" width="266" height="94" rx="12" class="node" />
+    <text x="56" y="690" class="label">messages[]</text>
+    <text x="56" y="716" class="small">in memory only</text>
+    <text x="56" y="740" class="small">compact() rewrites it</text>
+
+    <rect x="324" y="662" width="266" height="94" rx="12" class="node" />
+    <text x="340" y="690" class="label">Workdir files</text>
+    <text x="340" y="716" class="small">on disk</text>
+    <text x="340" y="740" class="small">tools cannot leave it</text>
+
+    <rect x="608" y="662" width="266" height="94" rx="12" class="node" />
+    <text x="624" y="690" class="label">TRACE.md</text>
+    <text x="624" y="716" class="small">on disk, outlives runs</text>
+    <text x="624" y="740" class="small">read into the prompt</text>
+
+    <rect x="892" y="662" width="266" height="94" rx="12" class="node" />
+    <text x="908" y="690" class="label">skills/</text>
+    <text x="908" y="716" class="small">on disk</text>
+    <text x="908" y="740" class="small">body loaded by use_skill</text>
+  </g>
+</g><g id="watermark"><text x="1176" y="776" class="watermark" text-anchor="end">Dipesh Walia</text></g></svg>

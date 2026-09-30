@@ -46,6 +46,10 @@ bun scratch/fib.ts
 
 ## Docs
 
+- [How a Trace run works, end to end](docs/end-to-end.svg): setup in a demo, the `runLoop` cycle with compaction and the policy check, the observers, how a run ends, and where state lives.
+
+![How a Trace run works, end to end](docs/end-to-end.svg)
+
 - [How runLoop works](docs/runloop.svg): the turn cycle, `step()`, `execute()`, and the events the loop emits.
 
 ![How runLoop works](docs/runloop.svg)
