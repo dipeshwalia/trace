@@ -1,0 +1,24 @@
+demos/3-context.ts
+  s_f57637ef138635::t_eabb3080bcd83c 1-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "53e2ebd90ad84184f707859f40f8abdd53de52d2",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_f57637ef138635": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dfd1c404-e537-41a9-b6b5-b5677f854137",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
