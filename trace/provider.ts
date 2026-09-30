@@ -50,15 +50,13 @@ export function apiKey(): string {
 export async function complete({ model = DEFAULT_MODEL, system, messages, tools }: {
   model?: string; system: string; messages: Message[]; tools?: ToolSpec[];
 }): Promise<Completion> {
-  const body: Record<string, unknown> = {
+  const data = await post({
     model,
     messages: [{ role: "system", content: system }, ...toWire(messages)],
     temperature: 0.4,
     max_tokens: 65536,
-  };
-  if (tools?.length) body.tools = tools.map((t) => ({ type: "function", function: t.schema }));
-
-  const data = await post(body);
+    ...(tools?.length ? { tools: tools.map((t) => ({ type: "function", function: t.schema })) } : {}),
+  });
   // OpenRouter can answer 200 with an error object instead of choices.
   if (data.error) throw new Error(`OpenRouter error: ${data.error.message ?? JSON.stringify(data.error)}`);
   const message = data.choices?.[0]?.message ?? {};
@@ -71,46 +69,58 @@ export async function complete({ model = DEFAULT_MODEL, system, messages, tools 
   };
 }
 
-/** Map neutral messages to OpenAI-style chat messages. */
-export function toWire(messages: Message[]): object[] {
-  return messages.map((m) => {
-    if (m.role === "user") return { role: "user", content: m.text };
-    if (m.role === "tool") return { role: "tool", tool_call_id: m.id, content: m.text };
-    const wire: Record<string, unknown> = { role: "assistant", content: m.text || null };
-    if (m.toolCalls.length) {
-      wire.tool_calls = m.toolCalls.map((c) =>
-        ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.args) } }));
-    }
+/** One wire encoder per neutral role; adding a role without an encoder is a type error. */
+const ENCODERS: { [R in Message["role"]]: (m: Extract<Message, { role: R }>) => object } = {
+  user: (m) => ({ role: "user", content: m.text }),
+  tool: (m) => ({ role: "tool", tool_call_id: m.id, content: m.text }),
+  assistant: (m) => ({
+    role: "assistant",
+    content: m.text || null,
+    ...(m.toolCalls.length > 0 && {
+      tool_calls: m.toolCalls.map((c) =>
+        ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.args) } })),
+    }),
     // Reasoning models (Gemini 3 among them) keep thought signatures in
     // reasoning_details and reject tool-call turns that drop or alter them.
-    if (m.reasoning) wire.reasoning_details = m.reasoning;
-    return wire;
-  });
+    ...(m.reasoning && { reasoning_details: m.reasoning }),
+  }),
+};
+
+/** Map neutral messages to OpenAI-style chat messages. */
+export function toWire(messages: Message[]): object[] {
+  return messages.map((m) => (ENCODERS[m.role] as (m: Message) => object)(m));
+}
+
+/** Result of a single request: a parsed body, or an error worth retrying. Fatal errors throw. */
+type Attempt = { done: WireResponse } | { retry: unknown };
+
+/** Make one POST to OpenRouter and classify the result. */
+async function attempt(body: object): Promise<Attempt> {
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json", "X-Title": "Trace" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(600_000),
+    });
+  } catch (err) {
+    if (err instanceof TypeError || (err as Error)?.name === "TimeoutError") return { retry: err };
+    throw err;
+  }
+  if (res.ok) return { done: (await res.json()) as WireResponse };
+  const error = new Error(`OpenRouter HTTP ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  if (RETRY_STATUSES.has(res.status)) return { retry: error };
+  throw error;
 }
 
 /** POST a body to OpenRouter, retrying rate limits, server errors, network errors, and timeouts. */
 async function post(body: object, retries = 5): Promise<WireResponse> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < retries; attempt++) {
-    if (attempt > 0) await Bun.sleep(2 ** (attempt - 1) * 2000);
-    let res: Response;
-    try {
-      res = await fetch(API_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json", "X-Title": "Trace" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(600_000),
-      });
-    } catch (err) {
-      const retryable = err instanceof TypeError || (err as Error)?.name === "TimeoutError";
-      if (!retryable) throw err;
-      lastError = err;
-      continue;
-    }
-    if (res.ok) return (await res.json()) as WireResponse;
-    const error = new Error(`OpenRouter HTTP ${res.status}: ${(await res.text()).slice(0, 400)}`);
-    if (!RETRY_STATUSES.has(res.status)) throw error;
-    lastError = error;
+  let outcome: Attempt = { retry: new Error("no attempts made") };
+  for (let i = 0; i < retries; i++) {
+    if (i > 0) await Bun.sleep(2 ** (i - 1) * 2000);
+    outcome = await attempt(body);
+    if ("done" in outcome) return outcome.done;
   }
-  throw lastError;
+  throw outcome.retry;
 }
