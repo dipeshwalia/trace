@@ -93,7 +93,7 @@ const system = "You are a coding agent working in a scratch directory. Paths are
 const messages: Message[] = [{ role: "user", text: scenario.task }];
 const tools = coreTools(workdir);
 const model = Bun.env.TRACE_MODEL;
-web?.start({ system, messages, tools, model, info: { scenario: name, workdir, policy: mode } });
+web?.start({ system, messages, tools, model, workdir, info: { scenario: name, policy: mode } });
 
 const policy = new Policy(mode, web?.approver);
 const logger = new ConsoleLogger();
@@ -107,6 +107,7 @@ try {
       web?.onEvent(event);
     },
     beforeTool: policy.check,
+    beforeTurn: web?.beforeTurn(),
     model,
   }).finally(() => logger.stop());
   logger.final(answer);

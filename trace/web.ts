@@ -2,22 +2,36 @@
  * Web logger: a live browser view of a run.
  *
  * Concept: the loop only emits events; this serves them to a local page over
- * Server-Sent Events, along with the live message history, so every turn,
- * tool call, result, and cent is visible as it happens. It can also be the
- * tool approver, turning a pending call into Approve and Deny buttons.
+ * Server-Sent Events, along with the live message history, project memory, and
+ * skill catalog, so every turn, tool call, compaction, and cent is visible as
+ * it happens. It can also be the tool approver, turning a pending call into
+ * Approve and Deny buttons.
  *
  * Design rules: Bun built-ins only (Bun.serve, Bun.file, ReadableStream); bind
  * to localhost; buffer every event and replay it to each new connection, so a
- * page opened or reloaded mid-run sees the whole run; the page is static HTML
- * in web.html with no build step.
+ * page opened or reloaded mid-run sees the whole run; memory and skills are
+ * re-read from disk on each /live request, so edits during the run show up;
+ * the page is static HTML in web.html with no build step.
  */
-import type { LoopEvent, Tool } from "./loop.ts";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { estimateTokens } from "./context.ts";
+import type { LoopEvent, LoopOptions, Tool } from "./loop.ts";
+import { MEMORY_FILE } from "./memory.ts";
 import { DEFAULT_MODEL, type Message, type ToolCall } from "./provider.ts";
+import { type Guard, guardOf } from "./security.ts";
+import { catalog } from "./skills.ts";
 
-/** What the page receives: loop events plus run setup, approvals, and the outcome. */
+/** Size of a message list: its length and estimated tokens. */
+export type ContextSize = { messages: number; tokens: number };
+
+/** What the page receives: loop events (tool results tagged with the guard that stopped them) plus run setup, context, approvals, and the outcome. */
 export type WebEvent =
-  | LoopEvent
-  | { kind: "runStart"; system: string; model: string; tools: object[]; info: Record<string, string> }
+  | Exclude<LoopEvent, { kind: "toolEnd" }>
+  | (Extract<LoopEvent, { kind: "toolEnd" }> & { guard?: Guard })
+  | { kind: "runStart"; system: string; model: string; tools: object[]; info: Record<string, string>; budget?: number }
+  | ({ kind: "context" } & ContextSize)
+  | { kind: "compacted"; before: ContextSize; after: ContextSize; summary: string }
   | { kind: "approval"; call: ToolCall; reason: string }
   | { kind: "approved"; id: string; allow: boolean }
   | { kind: "final"; answer: string }
@@ -36,6 +50,7 @@ export class WebLogger {
   private clients = new Set<Client>();
   private pending = new Map<string, (allow: boolean) => void>();
   private messages: Message[] = [];
+  private workdir: string | undefined;
 
   /** Start the server on `port`; 0 (the default, or TRACE_UI_PORT) picks a free one. */
   constructor(port = Number(Bun.env.TRACE_UI_PORT ?? 0)) {
@@ -47,7 +62,7 @@ export class WebLogger {
       routes: {
         "/": () => new Response(Bun.file(PAGE)),
         "/events": () => this.stream(),
-        "/messages": () => Response.json(this.messages),
+        "/live": () => Response.json(this.live()),
         "/approve/:id": { POST: (req) => this.answer(req.params.id, req) },
       },
       fetch: () => new Response("Not found", { status: 404 }),
@@ -57,18 +72,40 @@ export class WebLogger {
 
   /**
    * Show the run's setup. Pass the same `messages` array given to runLoop so the
-   * context view stays live; `info` adds labeled facts such as workdir or policy.
+   * context view stays live; `info` adds labeled facts such as policy; `workdir`
+   * turns on the memory and skills panels; `budget` is the compaction budget in tokens.
    */
-  start({ system, messages, tools, model, info = {} }: {
-    system: string; messages: Message[]; tools: Record<string, Tool>; model?: string; info?: Record<string, string>;
+  start({ system, messages, tools, model, info = {}, workdir, budget }: {
+    system: string; messages: Message[]; tools: Record<string, Tool>; model?: string;
+    info?: Record<string, string>; workdir?: string; budget?: number;
   }): void {
     this.messages = messages;
+    this.workdir = workdir;
     const schemas = Object.values(tools).map((t) => t.spec.schema);
-    this.emit({ kind: "runStart", system, model: model ?? DEFAULT_MODEL, tools: schemas, info });
+    const facts = workdir ? { workdir, ...info } : info;
+    this.emit({ kind: "runStart", system, model: model ?? DEFAULT_MODEL, tools: schemas, info: facts, budget });
   }
 
   /** Pass as runLoop's `onEvent` (or call from a fan-out); an arrow property so it stays bound. */
-  onEvent = (event: LoopEvent): void => this.emit(event);
+  onEvent = (event: LoopEvent): void =>
+    this.emit(event.kind === "toolEnd" ? { ...event, guard: guardOf(event.call, event.result) } : event);
+
+  /**
+   * Wrap runLoop's beforeTurn so the page shows the context size before every
+   * turn and each compaction with its summary. With no hook, only sizes are shown.
+   */
+  beforeTurn(hook?: LoopOptions["beforeTurn"]): NonNullable<LoopOptions["beforeTurn"]> {
+    return async (messages) => {
+      const before = { messages: messages.length, tokens: estimateTokens(messages) };
+      this.emit({ kind: "context", ...before });
+      const kept = hook ? await hook(messages) : messages;
+      if (kept !== messages) {
+        const after = { messages: kept.length, tokens: estimateTokens(kept) };
+        this.emit({ kind: "compacted", before, after, summary: kept[0]?.role === "user" ? kept[0].text : "" });
+      }
+      return kept;
+    };
+  }
 
   /** Ask on the page whether `call` may run; resolves when Approve or Deny is clicked. Fits Policy's approver. */
   approver = (call: ToolCall, reason: string): Promise<boolean> => {
@@ -93,6 +130,18 @@ export class WebLogger {
     for (const resolve of this.pending.values()) resolve(false);
     this.pending.clear();
     this.server.stop(true);
+  }
+
+  /** The live history and its size, plus the memory file and skill catalog as they are on disk now. */
+  private live(): object {
+    const workdir = this.workdir;
+    const memoryPath = workdir && join(workdir, MEMORY_FILE);
+    return {
+      messages: this.messages,
+      tokens: estimateTokens(this.messages),
+      memory: memoryPath && existsSync(memoryPath) ? readFileSync(memoryPath, "utf8") : null,
+      skills: workdir ? Object.entries(catalog(workdir)).map(([name, s]) => ({ name, description: s.description })) : null,
+    };
   }
 
   private emit(event: WebEvent): void {

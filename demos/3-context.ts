@@ -10,8 +10,9 @@
  * check apply; print a line each time compaction fires.
  * Run with `bun demos/3-context.ts [scenario]`, where scenario is a name or
  * number from SCENARIOS; with no argument it asks in a terminal and runs
- * "compact" otherwise. Set TRACE_MODEL to override the model and TRACE_BUDGET
- * to override a scenario's token budget.
+ * "compact" otherwise. Set TRACE_MODEL to override the model, TRACE_BUDGET to
+ * override a scenario's token budget, and TRACE_UI=1 to watch in a browser,
+ * with context size, compactions, memory, and skills in their own panels.
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,12 +20,13 @@ import { join, resolve } from "node:path";
 import { styleText } from "node:util";
 import { compact, estimateTokens } from "../trace/context.ts";
 import { ConsoleLogger } from "../trace/logger.ts";
-import { runLoop } from "../trace/loop.ts";
+import { type LoopEvent, runLoop } from "../trace/loop.ts";
 import { buildSystemPrompt, remember } from "../trace/memory.ts";
 import type { Message } from "../trace/provider.ts";
 import { Policy } from "../trace/security.ts";
 import { catalogPrompt, useSkillTool } from "../trace/skills.ts";
 import { coreTools } from "../trace/tools.ts";
+import { WebLogger } from "../trace/web.ts";
 
 /** Each scenario checks one step 4 requirement; `setup` prepares the working directory first. */
 type Scenario = { about: string; task: string; budget?: number; setup?: (workdir: string) => void };
@@ -101,14 +103,33 @@ async function beforeTurn(messages: Message[]): Promise<Message[]> {
   return kept;
 }
 
-const answer = await runLoop({
-  model,
-  system: buildSystemPrompt(workdir, catalogPrompt(workdir)),
-  messages: [{ role: "user", text: scenario.task }],
-  tools: { ...coreTools(workdir), use_skill: useSkillTool(workdir) },
-  onEvent: logger.onEvent,
-  beforeTool: new Policy("yolo").check,
-  beforeTurn,
-}).finally(() => logger.stop());
-logger.final(answer);
+const web = Bun.env.TRACE_UI ? new WebLogger() : undefined;
+if (web) console.log(`web UI: ${web.url}\n`);
+const system = buildSystemPrompt(workdir, catalogPrompt(workdir));
+const messages: Message[] = [{ role: "user", text: scenario.task }];
+const tools = { ...coreTools(workdir), use_skill: useSkillTool(workdir) };
+web?.start({ system, messages, tools, model, workdir, budget, info: { scenario: name, policy: "yolo" } });
+
+try {
+  const answer = await runLoop({
+    model,
+    system,
+    messages,
+    tools,
+    onEvent: (event: LoopEvent) => {
+      logger.onEvent(event);
+      web?.onEvent(event);
+    },
+    beforeTool: new Policy("yolo").check,
+    beforeTurn: web ? web.beforeTurn(beforeTurn) : beforeTurn,
+  }).finally(() => logger.stop());
+  logger.final(answer);
+  web?.final(answer);
+} catch (err) {
+  if (!web) throw err;
+  web.fail(err);
+  console.error(err);
+  process.exitCode = 1;
+}
 if (budget !== undefined) console.log(`${styleText("yellow", "compactions:")} ${compactions}`);
+if (web) console.log(`\nweb UI still open at ${web.url} (Ctrl-C to exit)`);

@@ -72,6 +72,11 @@
   table { border-collapse: collapse; width: 100%; }
   td, th { text-align: left; padding: 2px 12px 2px 0; }
   .context { position: sticky; top: 58px; max-height: calc(100vh - 74px); overflow: auto; }
+  .compaction { margin: 12px 0; padding: 8px; border: 1px dashed var(--warn); border-radius: 4px; color: var(--warn); }
+  .msg.summary { border-left: 3px solid var(--warn); padding-left: 8px; }
+  .badge.guard { color: var(--err); }
+  .skill { padding: 4px 0; } .skill .name { color: var(--tool); font-weight: 600; }
+  .over { color: var(--err); } .near { color: var(--warn); }
   .final { border-color: var(--ok); }
   .failed { border-color: var(--err); }
 </style>
@@ -82,6 +87,7 @@
   <span id="stage" class="stage">connecting…</span>
   <span id="timer" class="dim"></span>
   <span class="spacer"></span>
+  <span id="ctx-meter" class="dim"></span>
   <span id="meter" class="dim"></span>
 </header>
 <main>
@@ -91,6 +97,8 @@
     <div id="summary"></div>
   </div>
   <div>
+    <section id="memory" hidden><h2>Memory <span class="dim">TRACE.md</span></h2><div id="memory-body"></div></section>
+    <section id="skills" hidden><h2>Skills</h2><div id="skill-list"></div></section>
     <section id="files" hidden><h2>Files</h2><div id="file-list"></div></section>
     <section class="context"><h2>Context <span id="ctx-count"></span></h2><div id="context" class="dim">empty</div></section>
   </div>
@@ -104,8 +112,13 @@ const failure = (text) => (text.startsWith("BLOCKED:") ? "blocked" : text.starts
 
 let state;
 function reset() {
-  state = { run: null, startedAt: null, turns: [], stage: { label: "connected, waiting for events", at: Date.now(), kind: "idle" }, meter: null, final: null, failed: null };
+  state = {
+    run: null, startedAt: null, turns: [], stage: { label: "connected, waiting for events", at: Date.now(), kind: "idle" },
+    meter: null, final: null, failed: null, context: null, pendingContext: null, pendingCompaction: null, compactions: 0,
+  };
 }
+const COMPACTED = "[Conversation so far, compacted]";
+const kTokens = (n) => n.toLocaleString("en-US");
 
 /** Latest card for this call id that has no result yet; ids can repeat across turns. */
 function card(id) {
@@ -121,7 +134,24 @@ function apply(at, e) {
   const stage = (label, kind = "busy") => { state.stage = { label, at, kind }; };
   switch (e.kind) {
     case "runStart": state.run = e; state.startedAt = at; stage("starting"); break;
-    case "modelStart": state.turns.push({ n: e.turn, at, tools: [] }); stage(`turn ${e.turn}: waiting for model`); break;
+    case "context": {
+      state.context = { messages: e.messages, tokens: e.tokens };
+      state.pendingContext = state.context;
+      const over = state.run?.budget !== undefined && e.tokens > state.run.budget;
+      stage(over ? `compacting history (~${kTokens(e.tokens)} tokens over the ${kTokens(state.run.budget)} budget)` : "checking context size");
+      break;
+    }
+    case "compacted":
+      state.context = e.after;
+      state.pendingCompaction = e;
+      state.compactions++;
+      stage(`history compacted: ${e.before.messages} → ${e.after.messages} messages`);
+      break;
+    case "modelStart":
+      state.turns.push({ n: e.turn, at, tools: [], context: state.pendingContext, compaction: state.pendingCompaction });
+      state.pendingContext = state.pendingCompaction = null;
+      stage(`turn ${e.turn}: waiting for model`);
+      break;
     case "assistant":
       if (turn) { turn.completion = e.completion; turn.ms = at - turn.at; }
       state.meter = e.meter;
@@ -147,7 +177,7 @@ function apply(at, e) {
     }
     case "toolEnd": {
       const c = card(e.call.id);
-      if (c) { c.result = e.result; c.ms = at - c.at; }
+      if (c) { c.result = e.result; c.ms = at - c.at; c.guard = e.guard; }
       stage(`${e.call.name} finished`);
       break;
     }
@@ -222,6 +252,10 @@ const TOOL_VIEWS = {
     args: () => "",
     result: grepHits,
   },
+  use_skill: {
+    subject: (a) => a.name,
+    args: () => "",
+  },
 };
 
 function renderTool(c) {
@@ -241,6 +275,7 @@ function renderTool(c) {
   if (c.result !== undefined) result = status === "ok" && view.result ? view.result(c.result) : `<pre>${esc(c.result)}</pre>`;
   return `<div class="tool ${status}">
     <div class="tool-head"><span class="tool-name">${esc(c.call.name)}</span><span class="badge ${status}">${status}</span>
+      ${c.guard ? `<span class="badge guard">guard ${esc(c.guard)}</span>` : ""}
       <span class="subject">${view.subject ? esc(view.subject(a)) : ""}</span>
       <span class="dim">${c.ms === undefined ? "" : dur(c.ms)}</span><span class="dim">${esc(c.call.id)}</span></div>
     ${args}${approval}${result}</div>`;
@@ -273,9 +308,14 @@ function renderTimeline() {
     const c = t.completion;
     const u = c?.usage;
     const reasoning = reasoningText(c?.reasoning);
-    return `<div class="turn">
+    const k = t.compaction;
+    const compaction = k ? `<div class="compaction">history compacted before this turn: ${k.before.messages} → ${k.after.messages} messages,
+      ~${kTokens(k.before.tokens)} → ~${kTokens(k.after.tokens)} tokens
+      ${details(`k${ti}`, "summary the model wrote", `<pre>${esc(k.summary.replace(COMPACTED, "").trim())}</pre>`)}</div>` : "";
+    const ctx = t.context ? ` · context ~${kTokens((k?.after ?? t.context).tokens)} tokens` : "";
+    return `${compaction}<div class="turn">
       <div class="turn-head"><span>turn ${t.n}</span>
-        <span class="dim">${c ? `${esc(c.model)} · ${dur(t.ms)} · in ${u.input} out ${u.output} ${usd(u.cost)}` : "waiting for model…"}</span></div>
+        <span class="dim">${c ? `${esc(c.model)} · ${dur(t.ms)} · in ${u.input} out ${u.output} ${usd(u.cost)}` : state.failed ? "model call failed" : "waiting for model…"}${ctx}</span></div>
       ${reasoning ? details(`r${ti}`, "reasoning", `<pre>${esc(reasoning)}</pre>`) : ""}
       ${c?.text ? `<div class="text">${esc(c.text)}</div>` : ""}
       ${t.tools.map(renderTool).join("")}</div>`;
@@ -297,8 +337,15 @@ function renderSummary() {
     const tokens = u.input + u.output;
     return `<tr><td>${esc(m)}</td><td>in ${u.input}</td><td>out ${u.output}</td><td>${usd(u.cost)}</td><td class="dim">${tokens ? `$${(u.cost / tokens * 1e6).toFixed(2)}/M` : ""}</td></tr>`;
   }).join("");
+  const guards = {};
+  for (const t of state.turns) for (const c of t.tools) if (c.guard) guards[c.guard] = (guards[c.guard] ?? 0) + 1;
+  const guardLine = Object.entries(guards).map(([g, n]) => `<span class="badge guard">${esc(g)} ×${n}</span>`).join(" ");
+  const budget = state.run?.budget;
   $("summary").innerHTML = `<section class="final"><h2>Final answer</h2><div class="text">${esc(state.final)}</div>
     <h2 style="margin-top:12px">Tools</h2>${toolRows ? `<table>${toolRows}</table>` : '<span class="dim">no tool calls</span>'}
+    <h2 style="margin-top:12px">Guards</h2>${guardLine || '<span class="dim">none triggered</span>'}
+    ${budget !== undefined ? `<h2 style="margin-top:12px">Context</h2>${state.compactions} compaction${state.compactions === 1 ? "" : "s"} against a ${kTokens(budget)}-token budget
+      <span class="dim">(summary calls are not included in the cost below)</span>` : ""}
     <h2 style="margin-top:12px">Models</h2><table>${modelRows}</table></section>`;
 }
 
@@ -308,6 +355,10 @@ function renderStatus() {
   $("stage").textContent = s.label;
   const m = state.meter;
   $("meter").textContent = m ? `turns ${m.turn} · in ${m.total.input} out ${m.total.output} · ${usd(m.total.cost)}` : "";
+  const ctx = state.context;
+  const budget = state.run?.budget;
+  $("ctx-meter").textContent = ctx ? `context ~${kTokens(ctx.tokens)}${budget !== undefined ? ` / ${kTokens(budget)}` : ""} tokens` : "";
+  $("ctx-meter").className = !ctx || budget === undefined ? "dim" : ctx.tokens > budget ? "over" : ctx.tokens > budget * 0.8 ? "near" : "dim";
   tick();
 }
 
@@ -318,8 +369,24 @@ function tick() {
 }
 setInterval(tick, 100);
 
-function renderContext(messages) {
-  $("ctx-count").textContent = `(${messages.length} messages)`;
+function renderLive({ messages, tokens, memory, skills }) {
+  renderContext(messages, tokens);
+  $("memory").hidden = memory === null;
+  if (memory !== null) $("memory-body").innerHTML = memory.trim() ? `<pre>${esc(memory)}</pre>` : '<span class="dim">empty</span>';
+  $("skills").hidden = skills === null;
+  if (skills === null) return;
+  const loaded = new Set();
+  for (const t of state.turns) for (const c of t.tools)
+    if (c.call.name === "use_skill" && c.result !== undefined && failure(c.result) === "ok") loaded.add(String(c.call.args?.name));
+  $("skill-list").innerHTML = skills.length
+    ? skills.map((s) => `<div class="skill"><span class="name">${esc(s.name)}</span>
+        ${loaded.has(s.name) ? '<span class="badge ok">loaded</span>' : '<span class="badge running">listed</span>'}
+        <div class="dim">${esc(s.description || "(no description)")}</div></div>`).join("")
+    : '<span class="dim">no skills/ folder in the working directory</span>';
+}
+
+function renderContext(messages, tokens) {
+  $("ctx-count").textContent = `(${messages.length} messages, ~${kTokens(tokens)} tokens)`;
   if (!messages.length) return;
   $("context").classList.remove("dim");
   $("context").innerHTML = messages.map((m, i) => {
@@ -327,15 +394,17 @@ function renderContext(messages) {
     if (m.role === "assistant" && m.toolCalls.length) body += m.toolCalls.map((c) => `<div><span class="tool-name">${esc(c.name)}</span> <span class="dim">${esc(JSON.stringify(c.args))}</span></div>`).join("");
     if (m.reasoning?.length) body += `<div class="dim">+ ${m.reasoning.length} reasoning block(s), echoed back verbatim</div>`;
     const meta = m.role === "tool" ? ` <span class="dim">${esc(m.name)} · ${esc(m.id)}</span>` : "";
-    return `<div class="msg"><span class="dim">#${i}</span> <span class="role ${m.role}">${m.role}</span>${meta}${body}</div>`;
+    const summary = m.role === "user" && m.text.startsWith(COMPACTED);
+    const label = summary ? ' <span class="dim">compacted summary of earlier turns</span>' : meta;
+    return `<div class="msg${summary ? " summary" : ""}"><span class="dim">#${i}</span> <span class="role ${m.role}">${m.role}</span>${label}${body}</div>`;
   }).join("");
 }
 
-let contextTimer;
-function refreshContext() {
-  clearTimeout(contextTimer);
-  contextTimer = setTimeout(async () => {
-    try { renderContext(await (await fetch("/messages")).json()); } catch {}
+let liveTimer;
+function refreshLive() {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(async () => {
+    try { renderLive(await (await fetch("/live")).json()); } catch {}
   }, 150);
 }
 
@@ -362,7 +431,7 @@ source.onmessage = (msg) => {
   const { at, event } = JSON.parse(msg.data);
   apply(at, event);
   render();
-  refreshContext();
+  refreshLive();
 };
 source.onerror = () => {
   state.stage = { label: "disconnected — is the run still going? retrying…", at: Date.now(), kind: "failed" };
