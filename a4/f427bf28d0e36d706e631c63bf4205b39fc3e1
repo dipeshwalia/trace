@@ -1,0 +1,26 @@
+docs/end-to-end.svg
+  s_f57637ef138635::t_47f43e5e698bda 1-155
+README.md
+  s_f57637ef138635::t_0a818031f2eb34 49-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a4f427bf28d0e36d706e631c63bf4205b39fc3e1",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_f57637ef138635": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dfd1c404-e537-41a9-b6b5-b5677f854137",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
