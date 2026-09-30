@@ -28,7 +28,7 @@ export type LoopOptions = {
   model?: string; system: string; messages: Message[]; tools: Record<string, Tool>;
   onEvent: (event: LoopEvent) => void;
   beforeTool: (call: ToolCall) => string | undefined | Promise<string | undefined>;
-  maxTurns?: number; beforeTurn?: (messages: Message[]) => Message[];
+  maxTurns?: number; beforeTurn?: (messages: Message[]) => Message[] | Promise<Message[]>;
 };
 
 /** Run model turns and tool calls until the model answers without tools; return that answer. */
@@ -38,7 +38,7 @@ export async function runLoop(opts: LoopOptions): Promise<string> {
   const meter: Meter = { turn: 0, total: emptyUsage(), byModel: {} };
   for (let turn = 0; turn < maxTurns; turn++) {
     // Replace the contents, not the array, so the caller's reference stays live.
-    if (beforeTurn) messages.splice(0, messages.length, ...beforeTurn(messages));
+    if (beforeTurn) messages.splice(0, messages.length, ...await beforeTurn(messages));
     const completion = await step({ model, system, messages, tools: specs }, onEvent, meter);
     if (!completion.toolCalls.length) return completion.text;
     for (const call of completion.toolCalls) {
