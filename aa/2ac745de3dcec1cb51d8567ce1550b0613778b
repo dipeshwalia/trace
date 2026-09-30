@@ -1,0 +1,27 @@
+step2.md
+  s_eeeb1e981760a5::t_306882ba4e6c51 1-9,12-19,21-29,31-32,35-37,44-49,51,53,55-61,63-69,71,73-74,76-81,83
+  s_eeeb1e981760a5::t_ab369fbdc9797e 38-43
+  h_43702bfdbafe7b 11,33-34,50,54,70,75
+  s_eeeb1e981760a5::t_6e25d0c9a2ee76 10,20,30,52,62,72,82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "aa2ac745de3dcec1cb51d8567ce1550b0613778b",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_eeeb1e981760a5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9ab4f420-829d-45cd-ab20-38b85e32ae47",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
