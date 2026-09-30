@@ -1,0 +1,28 @@
+docs/agents-skills.svg
+  s_3758916b0d52ba::t_fb94f1047c63af 60
+  s_3758916b0d52ba::t_1af8b3ba938863 1-17
+  s_3758916b0d52ba::t_e2ca6a199155c8 18-59,61-135
+README.md
+  s_3758916b0d52ba::t_f9717a446e6729 97-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ed2792615ffebcfc48f31712b3a2bca57b247d7b",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_3758916b0d52ba": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "47f27866-5522-4699-aa70-9c46b73eb898",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
