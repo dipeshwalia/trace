@@ -37,6 +37,22 @@ export type Mode = "read-only" | "safe" | "yolo";
 /** Asked in safe mode; return true to allow the call. */
 export type Approver = (call: ToolCall, reason: string) => boolean | Promise<boolean>;
 
+/** A safeguard stage, numbered as in docs/tool-guards.svg. */
+export type Guard = "1 policy" | "2a path" | "2b sandbox";
+
+/**
+ * Which safeguard stopped a call, read from its result text: a BLOCKED result
+ * came from the policy, a PermissionError from resolve(), and "Operation not
+ * permitted" in bash output from the sandbox (a heuristic, since a command
+ * could print that text itself).
+ */
+export function guardOf(call: ToolCall, result: string): Guard | undefined {
+  if (result.startsWith("BLOCKED:")) return "1 policy";
+  if (result.startsWith("ERROR: PermissionError:")) return "2a path";
+  if (call.name === "bash" && result.includes("Operation not permitted")) return "2b sandbox";
+  return undefined;
+}
+
 /** Decides each tool call; pass `check` as runLoop's beforeTool. */
 export class Policy {
   constructor(readonly mode: Mode = "safe", private readonly approver: Approver = () => false) {}

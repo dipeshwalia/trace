@@ -3,7 +3,8 @@
  *
  * Concept: the loop only emits events; this turns them into a readable,
  * colored transcript with a live spinner while the model or a tool is working,
- * and a per-turn and per-model usage report.
+ * a tag naming the safeguard stage that stopped a call, and a per-turn and
+ * per-model usage report.
  *
  * Design rules: standard library only (node:util styleText); output is plain
  * when stdout is not a terminal or NO_COLOR is set, and the spinner then
@@ -11,6 +12,7 @@
  */
 import { styleText } from "node:util";
 import type { LoopEvent, Meter } from "./loop.ts";
+import { type Guard, guardOf } from "./security.ts";
 
 const FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 const usd = (n: number) => `$${n.toFixed(6)}`;
@@ -19,6 +21,7 @@ export class ConsoleLogger {
   private meter: Meter | undefined;
   private spinner: ReturnType<typeof setInterval> | undefined;
   private toolRuns: Record<string, { calls: number; failed: number }> = {};
+  private guards: Partial<Record<Guard, number>> = {};
 
   /** Pass as runLoop's `onEvent`; an arrow property so it stays bound. */
   onEvent = (event: LoopEvent): void => {
@@ -46,7 +49,10 @@ export class ConsoleLogger {
         this.toolRuns[event.call.name] = runs;
         runs.calls++;
         if (failed) runs.failed++;
-        console.log(styleText(failed ? "red" : "green", `<- ${event.result}`));
+        const guard = guardOf(event.call, event.result);
+        if (guard) this.guards[guard] = (this.guards[guard] ?? 0) + 1;
+        const tag = guard ? `${styleText(["red", "bold"], `[guard ${guard}]`)} ` : "";
+        console.log(tag + styleText(failed || guard ? "red" : "green", `<- ${event.result}`));
         break;
       }
     }
@@ -61,6 +67,8 @@ export class ConsoleLogger {
     const detail = tools.map(([name, r]) => `${name} ×${r.calls}${r.failed ? ` (${r.failed} failed)` : ""}`);
     console.log(`${styleText("cyan", "tools:")} ${calls} call${calls === 1 ? "" : "s"}`
       + (detail.length ? `: ${detail.join(", ")}` : ""));
+    const guards = Object.entries(this.guards).map(([guard, n]) => `${guard} ×${n}`);
+    if (guards.length) console.log(`${styleText("red", "guards:")} ${guards.join(", ")}`);
     for (const [model, u] of Object.entries(this.meter?.byModel ?? {})) {
       const tokens = u.input + u.output;
       const rate = tokens ? ` (effective $${(u.cost / tokens * 1e6).toFixed(2)}/M tokens)` : "";
