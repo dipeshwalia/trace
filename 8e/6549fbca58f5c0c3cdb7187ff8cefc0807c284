@@ -1,0 +1,28 @@
+README.md
+  s_f57637ef138635::t_61a8307460e7b6 42-44
+  s_f57637ef138635::t_074d5621e1e7f2 19
+  s_f57637ef138635::t_e497765ca4ea6b 56-59
+docs/memory-skills.svg
+  s_f57637ef138635::t_aa510633cd073c 1-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8e6549fbca58f5c0c3cdb7187ff8cefc0807c284",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_f57637ef138635": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dfd1c404-e537-41a9-b6b5-b5677f854137",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
