@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc"><title id="title">How runLoop works</title><desc id="desc">Deep dive of trace/loop.ts: the turn cycle, what step() does on each model call, how execute() turns every tool call into a result, the events emitted, and the turn-limit wrap-up.</desc><metadata id="illustration-style">{"canvas": {"height": 800, "width": 1200}, "fonts": {"display": "Georgia", "labels": "Arial"}, "profile": "plum-apricot", "profile_sha256": "c9eaf17798100dfaf4123094d3d3b1e35a319ef81105a348288f919b4d91d8e6", "profile_version": "1.2", "style_version": 1, "theme": "light"}</metadata><defs><style id="brand-style">text { font-family: 'Arial'; font-size: 24px; fill: #231B21; }
+.title { font-family: 'Georgia'; font-size: 40px; font-weight: 400; }
+.label { font-size: 24px; }
+.small { font-size: 20px; fill: #54494F; }
+.note { font-size: 21px; }
+.section { font-size: 24px; font-weight: 600; fill: #4A2446; }
+.node { fill: #FFFFFF; stroke: #665B61; stroke-width: 2; }
+.focus { fill: #F1E3EF; stroke: #4A2446; stroke-width: 2.5; }
+.highlight { fill: #F2A97A; stroke: #4A2446; stroke-width: 2.5; }
+.panel { fill: #4A2446; stroke: #4A2446; stroke-width: 2; }
+.on-panel { fill: #FFFFFF; }
+.on-highlight { fill: #231B21; }
+.badge { fill: #4A2446; }
+.number { font-size: 19px; fill: #FFFFFF; }
+.arrow { fill: none; stroke: #665B61; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrowhead); }
+.leader { fill: none; stroke: #665B61; stroke-width: 2; stroke-dasharray: 6 5; }
+.line { fill: none; stroke: #665B61; stroke-width: 2; }
+.watermark { font-size: 12px; fill: #54494F; }</style><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#665B61" /></marker></defs><rect id="background" x="0" y="0" width="1200" height="800" fill="#F8F4EF" /><g id="artwork">
+  <g id="heading">
+    <text x="40" y="60" class="title">How runLoop works</text>
+    <text x="40" y="96" class="small">Ask the model, run the tools it asks for, feed the results back, and stop when it replies without tool calls.</text>
+  </g>
+
+  <g id="turn-cycle">
+    <text x="70" y="136" class="section">Turn cycle</text>
+
+    <g id="start">
+      <rect x="70" y="150" width="430" height="60" rx="12" class="node" />
+      <text x="90" y="176" class="label">runLoop(opts)</text>
+      <text x="90" y="200" class="small">specs from tools · meter starts at turn 0</text>
+    </g>
+
+    <g id="turn-check">
+      <rect x="70" y="240" width="270" height="46" rx="12" class="node" />
+      <text x="90" y="271" class="label">turn &lt; maxTurns (80)?</text>
+    </g>
+
+    <g id="before-turn">
+      <rect x="70" y="316" width="430" height="60" rx="12" class="node" />
+      <text x="90" y="342" class="label">beforeTurn?(messages)</text>
+      <text x="90" y="366" class="small">optional · replaces contents in place</text>
+    </g>
+
+    <g id="step-call">
+      <rect x="70" y="406" width="430" height="60" rx="12" class="focus" />
+      <text x="90" y="432" class="label">step()</text>
+      <text x="90" y="456" class="small">one model call, detailed at right</text>
+    </g>
+
+    <g id="tool-check">
+      <rect x="70" y="496" width="240" height="46" rx="12" class="node" />
+      <text x="90" y="527" class="label">any tool calls?</text>
+    </g>
+
+    <g id="return-answer">
+      <rect x="360" y="496" width="170" height="46" rx="12" class="highlight" />
+      <text x="378" y="527" class="label on-highlight">return text</text>
+    </g>
+
+    <g id="each-call">
+      <rect x="70" y="572" width="430" height="90" rx="12" class="node" />
+      <text x="90" y="598" class="label">for each tool call</text>
+      <text x="90" y="624" class="small">toolStart → execute(call) → toolEnd</text>
+      <text x="90" y="648" class="small">push { role: tool, id, name, text }</text>
+    </g>
+
+    <g id="wrap-up">
+      <rect x="70" y="690" width="460" height="80" rx="12" class="highlight" />
+      <text x="90" y="716" class="label on-highlight">Out of turns</text>
+      <text x="90" y="740" class="small on-highlight">push user: "Turn limit reached; wrap up now."</text>
+      <text x="90" y="762" class="small on-highlight">step() with no tools → return text</text>
+    </g>
+
+    <g id="cycle-arrows">
+      <path d="M205 210 V238" class="arrow" />
+      <path d="M205 286 V314" class="arrow" />
+      <text x="215" y="306" class="small">yes</text>
+      <path d="M205 376 V404" class="arrow" />
+      <path d="M190 466 V494" class="arrow" />
+      <path d="M190 542 V570" class="arrow" />
+      <text x="200" y="562" class="small">yes</text>
+      <path d="M310 519 H358" class="arrow" />
+      <text x="320" y="510" class="small">no</text>
+      <path d="M70 617 H45 V263 H68" class="arrow" />
+      <text x="32" y="440" class="small" text-anchor="middle" transform="rotate(-90 32 440)">next turn</text>
+      <path d="M340 263 H550 V730 H532" class="arrow" />
+      <text x="352" y="254" class="small">no</text>
+    </g>
+  </g>
+
+  <g id="step-detail">
+    <text x="600" y="136" class="section">step(): one model call</text>
+    <rect x="600" y="150" width="560" height="172" rx="12" class="focus" />
+    <g id="step-lines">
+      <circle cx="628" cy="179" r="12" class="badge" />
+      <text x="628" y="186" class="number" text-anchor="middle">1</text>
+      <text x="652" y="186" class="small">emit modelStart { turn }</text>
+      <circle cx="628" cy="211" r="12" class="badge" />
+      <text x="628" y="218" class="number" text-anchor="middle">2</text>
+      <text x="652" y="218" class="small">complete(): system + messages + tool specs</text>
+      <circle cx="628" cy="243" r="12" class="badge" />
+      <text x="628" y="250" class="number" text-anchor="middle">3</text>
+      <text x="652" y="250" class="small">push assistant { text, toolCalls, reasoning }</text>
+      <circle cx="628" cy="275" r="12" class="badge" />
+      <text x="628" y="282" class="number" text-anchor="middle">4</text>
+      <text x="652" y="282" class="small">meter: turn + 1, add usage to total and model</text>
+      <circle cx="628" cy="307" r="12" class="badge" />
+      <text x="628" y="314" class="number" text-anchor="middle">5</text>
+      <text x="652" y="314" class="small">emit assistant { completion, meter copy }</text>
+    </g>
+  </g>
+
+  <g id="execute-detail">
+    <text x="600" y="358" class="section">execute(call): never throws</text>
+    <g id="execute-blocked">
+      <rect x="600" y="372" width="260" height="42" rx="12" class="node" />
+      <text x="616" y="400" class="small">beforeTool gives a reason</text>
+      <path d="M860 393 H898" class="arrow" />
+      <rect x="900" y="372" width="260" height="42" rx="12" class="node" />
+      <text x="916" y="400" class="small">BLOCKED: reason</text>
+    </g>
+    <g id="execute-unknown">
+      <rect x="600" y="424" width="260" height="42" rx="12" class="node" />
+      <text x="616" y="452" class="small">no tool with that name</text>
+      <path d="M860 445 H898" class="arrow" />
+      <rect x="900" y="424" width="260" height="42" rx="12" class="node" />
+      <text x="916" y="452" class="small">ERROR: unknown tool</text>
+    </g>
+    <g id="execute-ok">
+      <rect x="600" y="476" width="260" height="42" rx="12" class="node" />
+      <text x="616" y="504" class="small">run(args) returns a value</text>
+      <path d="M860 497 H898" class="arrow" />
+      <rect x="900" y="476" width="260" height="42" rx="12" class="focus" />
+      <text x="916" y="504" class="small">value as text or JSON</text>
+    </g>
+    <g id="execute-throws">
+      <rect x="600" y="528" width="260" height="42" rx="12" class="node" />
+      <text x="616" y="556" class="small">run(args) throws</text>
+      <path d="M860 549 H898" class="arrow" />
+      <rect x="900" y="528" width="260" height="42" rx="12" class="node" />
+      <text x="916" y="556" class="small">ERROR: Name: message</text>
+    </g>
+    <text x="600" y="598" class="small">Checked top to bottom. Every result becomes a tool message.</text>
+  </g>
+
+  <g id="events">
+    <text x="600" y="642" class="section">Events sent to onEvent, in order</text>
+    <rect x="600" y="656" width="120" height="40" rx="12" class="node" />
+    <text x="660" y="683" class="small" text-anchor="middle">modelStart</text>
+    <path d="M720 676 H746" class="arrow" />
+    <rect x="748" y="656" width="110" height="40" rx="12" class="node" />
+    <text x="803" y="683" class="small" text-anchor="middle">assistant</text>
+    <path d="M858 676 H884" class="arrow" />
+    <rect x="886" y="656" width="110" height="40" rx="12" class="node" />
+    <text x="941" y="683" class="small" text-anchor="middle">toolStart</text>
+    <path d="M996 676 H1022" class="arrow" />
+    <rect x="1024" y="656" width="110" height="40" rx="12" class="node" />
+    <text x="1079" y="683" class="small" text-anchor="middle">toolEnd</text>
+    <text x="600" y="726" class="small">toolStart and toolEnd repeat once per tool call.</text>
+    <text x="600" y="752" class="small">messages is mutated in place as the live history.</text>
+  </g>
+</g><g id="watermark"><text x="1176" y="776" class="watermark" text-anchor="end">Dipesh Walia</text></g></svg>
