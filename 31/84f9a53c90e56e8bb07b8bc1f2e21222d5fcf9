@@ -1,0 +1,30 @@
+trace/web.html
+  s_bde4692aef3144::t_7c341d91e9c611 26
+  s_bde4692aef3144::t_1f0caf00016bad 1-25,27-29,32-45,48-206,209-290
+  s_bde4692aef3144::t_d44dd484c620ed 207-208
+  s_bde4692aef3144::t_e560520bd4f0d1 30-31
+  s_bde4692aef3144::t_781f8e158e1c25 46-47
+demos/1-dice.ts
+  s_bde4692aef3144::t_1f2ddb089bf5e8 43
+  s_bde4692aef3144::t_6793918508f915 12-13,16-18
+  s_bde4692aef3144::t_8a5b397a74338b 90-102,104-128
+  s_bde4692aef3144::t_50ee170c65be16 63-67
+trace/web.ts
+  s_bde4692aef3144::t_debbf99efb9ead 1-133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3184f9a53c90e56e8bb07b8bc1f2e21222d5fcf9",
+  "prompts": {},
+  "sessions": {
+    "s_bde4692aef3144": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "70ad7280-941e-48f4-b01a-e8165b50a00d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
