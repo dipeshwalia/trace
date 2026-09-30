@@ -25,15 +25,19 @@ export type Message =
 /** A tool offered to the model; `schema` is a JSON Schema function declaration. */
 export type ToolSpec = { schema: { name: string; description: string; parameters: object } };
 
-/** The parsed result of one model call. */
+/** Token counts and OpenRouter's reported cost in USD for one or more model calls. */
+export type Usage = { input: number; output: number; cost: number };
+
+/** The parsed result of one model call; `model` is the model that actually served it. */
 export type Completion = {
-  text: string; toolCalls: ToolCall[]; reasoning?: unknown[]; usage: { input: number; output: number };
+  text: string; toolCalls: ToolCall[]; reasoning?: unknown[]; model: string; usage: Usage;
 };
 
 type WireToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
 type WireResponse = {
+  model?: string;
   choices?: { message?: { content?: string | null; tool_calls?: WireToolCall[]; reasoning_details?: unknown[] } }[];
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   error?: { message?: string };
 };
 
@@ -65,7 +69,12 @@ export async function complete({ model = DEFAULT_MODEL, system, messages, tools 
     toolCalls: (message.tool_calls ?? []).map((c) =>
       ({ id: c.id, name: c.function.name, args: JSON.parse(c.function.arguments || "{}") })),
     reasoning: message.reasoning_details,
-    usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0 },
+    model: data.model ?? model,
+    usage: {
+      input: data.usage?.prompt_tokens ?? 0,
+      output: data.usage?.completion_tokens ?? 0,
+      cost: data.usage?.cost ?? 0,
+    },
   };
 }
 
