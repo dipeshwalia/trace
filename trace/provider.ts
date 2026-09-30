@@ -1,5 +1,5 @@
 /**
- * Day 1 provider: the single seam between Trace and a language model.
+ * Provider: the single seam between Trace and a language model.
  *
  * Concept: the harness speaks one neutral message format. This file
  * translates it to OpenRouter's OpenAI-style chat completions API and back,

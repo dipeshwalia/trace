@@ -18,6 +18,7 @@ const usd = (n: number) => `$${n.toFixed(6)}`;
 export class ConsoleLogger {
   private meter: Meter | undefined;
   private spinner: ReturnType<typeof setInterval> | undefined;
+  private toolRuns: Record<string, { calls: number; failed: number }> = {};
 
   /** Pass as runLoop's `onEvent`; an arrow property so it stays bound. */
   onEvent = (event: LoopEvent): void => {
@@ -41,20 +42,29 @@ export class ConsoleLogger {
         break;
       case "toolEnd": {
         const failed = /^(ERROR|BLOCKED):/.test(event.result);
+        const runs = this.toolRuns[event.call.name] ?? { calls: 0, failed: 0 };
+        this.toolRuns[event.call.name] = runs;
+        runs.calls++;
+        if (failed) runs.failed++;
         console.log(styleText(failed ? "red" : "green", `<- ${event.result}`));
         break;
       }
     }
   };
 
-  /** Print the final answer, then usage, cost, and effective $/M tokens for each model used. */
+  /** Print the final answer, tool calls per tool, then usage, cost, and effective $/M tokens per model. */
   final(answer: string): void {
     this.stop();
     console.log(`\n${styleText(["green", "bold"], "final:")} ${answer}`);
+    const tools = Object.entries(this.toolRuns);
+    const calls = tools.reduce((n, [, r]) => n + r.calls, 0);
+    const detail = tools.map(([name, r]) => `${name} ×${r.calls}${r.failed ? ` (${r.failed} failed)` : ""}`);
+    console.log(`${styleText("cyan", "tools:")} ${calls} call${calls === 1 ? "" : "s"}`
+      + (detail.length ? `: ${detail.join(", ")}` : ""));
     for (const [model, u] of Object.entries(this.meter?.byModel ?? {})) {
-      const perMillion = u.cost / (u.input + u.output) * 1e6;
-      console.log(`${styleText("yellow", model)}: in ${u.input} out ${u.output} ${usd(u.cost)}`
-        + ` (effective $${perMillion.toFixed(2)}/M tokens)`);
+      const tokens = u.input + u.output;
+      const rate = tokens ? ` (effective $${(u.cost / tokens * 1e6).toFixed(2)}/M tokens)` : "";
+      console.log(`${styleText("yellow", model)}: in ${u.input} out ${u.output} ${usd(u.cost)}${rate}`);
     }
   }
 

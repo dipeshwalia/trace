@@ -1,5 +1,5 @@
 /**
- * Day 1 loop: the agent turn cycle.
+ * Loop: the agent turn cycle.
  *
  * Concept: an agent is a loop. Ask the model, run the tools it requests, feed
  * the results back, and stop when it answers without calling a tool.
