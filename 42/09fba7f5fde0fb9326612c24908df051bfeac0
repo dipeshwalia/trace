@@ -1,0 +1,21 @@
+docs/tool-guards.svg
+  s_eeeb1e981760a5::t_0606a01c281801 1-158
+README.md
+  s_eeeb1e981760a5::t_5d62f23b39b379 48-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4209fba7f5fde0fb9326612c24908df051bfeac0",
+  "prompts": {},
+  "sessions": {
+    "s_eeeb1e981760a5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9ab4f420-829d-45cd-ab20-38b85e32ae47",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
