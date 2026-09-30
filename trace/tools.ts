@@ -8,7 +8,7 @@
  * Design rules: Bun and Node standard library only; every path goes through
  * resolve(), which throws PermissionError outside the working directory; on
  * macOS, bash runs under a sandbox-exec profile that blocks reads under the
- * home directory and writes anywhere outside the working directory (other
+ * home and temp directories and writes anywhere outside the working directory (other
  * platforms run it unconfined); bash never sees the API key; all parameters
  * are strings; bad input throws or returns an ERROR string, so the loop can
  * hand it back to the model.
@@ -16,7 +16,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve as resolvePath, sep } from "node:path";
 import type { Tool } from "./loop.ts";
 
@@ -48,17 +48,20 @@ const SECRET_ENV = ["TRACE_API_KEY", "OPENROUTER_API_KEY"];
 
 /**
  * A macOS Seatbelt profile for bash. The last matching rule wins: reads under
- * the home directory are denied except the working directory and Bun's
- * install, and writes are denied everywhere except the working directory and
- * a few /dev files. Metadata stays readable so paths inside home resolve.
+ * the home directory and the temp directories are denied except the working
+ * directory and Bun's install, and writes are denied everywhere except the
+ * working directory and a few /dev files. Metadata stays readable so paths
+ * inside denied trees resolve.
  */
 function seatbeltProfile(root: string): string {
   const q = JSON.stringify;
   const home = realpathSync(homedir());
+  // The scratch workdir lives in the per-user temp dir, next to other apps' temp files and other runs.
+  const temps = [realpathSync(tmpdir()), "/private/var/folders", "/private/tmp"];
   const bunInstall = dirname(dirname(realpathSync(process.execPath)));
   return `(version 1)
 (allow default)
-(deny file-read* (subpath ${q(home)}))
+(deny file-read* ${[home, ...temps].map((p) => `(subpath ${q(p)})`).join(" ")})
 (allow file-read* (subpath ${q(root)}) (subpath ${q(bunInstall)}))
 (allow file-read-metadata)
 (deny file-write*)
@@ -170,7 +173,7 @@ export function coreTools(workdir: string): Record<string, Tool> {
   const bash = tool({
     name: "bash",
     description: "Run a shell command in the working directory; returns stdout and stderr combined"
-      + (process.platform === "darwin" ? ". It cannot read the home directory or write outside the working directory" : ""),
+      + (process.platform === "darwin" ? ". It cannot read the home or temp directories or write outside the working directory" : ""),
     params: {
       command: { description: "The shell command" },
       timeout: { description: "Seconds before the command is killed (default 120)", optional: true },
