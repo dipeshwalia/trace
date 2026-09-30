@@ -1,0 +1,19 @@
+package.json
+  s_a2bef292e3a226::t_42d1b128449231 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fc9571fad9dcda1fe313aab532bfb09b7998b106",
+  "prompts": {},
+  "sessions": {
+    "s_a2bef292e3a226": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "652b7889-5ac8-4a6b-87c0-dc6198b6a395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
