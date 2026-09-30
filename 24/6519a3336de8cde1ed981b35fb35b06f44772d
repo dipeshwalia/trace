@@ -1,0 +1,24 @@
+demos/day1-dice.ts
+  s_a2bef292e3a226::t_f4695a56e71f85 1-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "246519a3336de8cde1ed981b35fb35b06f44772d",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_a2bef292e3a226": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "652b7889-5ac8-4a6b-87c0-dc6198b6a395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
