@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc"><title id="title">How a Harness saves, resumes, and delegates</title><desc id="desc">trace/harness.ts appends every message to a JSONL session file as it lands. resume() loads the latest file, drops a torn tail, answers interrupted tool calls by id, and continues. spawn_agent runs a task in a child Harness with a clean context that writes no session file.</desc><metadata id="illustration-style">{"canvas": {"height": 800, "width": 1200}, "fonts": {"display": "Georgia", "labels": "Arial"}, "profile": "plum-apricot", "profile_sha256": "c9eaf17798100dfaf4123094d3d3b1e35a319ef81105a348288f919b4d91d8e6", "profile_version": "1.2", "style_version": 1, "theme": "light"}</metadata><defs><style id="brand-style">text { font-family: 'Arial'; font-size: 24px; fill: #231B21; }
+.title { font-family: 'Georgia'; font-size: 40px; font-weight: 400; }
+.label { font-size: 24px; }
+.small { font-size: 20px; fill: #54494F; }
+.note { font-size: 21px; }
+.section { font-size: 24px; font-weight: 600; fill: #4A2446; }
+.node { fill: #FFFFFF; stroke: #665B61; stroke-width: 2; }
+.focus { fill: #F1E3EF; stroke: #4A2446; stroke-width: 2.5; }
+.highlight { fill: #F2A97A; stroke: #4A2446; stroke-width: 2.5; }
+.panel { fill: #4A2446; stroke: #4A2446; stroke-width: 2; }
+.on-panel { fill: #FFFFFF; }
+.on-highlight { fill: #231B21; }
+.badge { fill: #4A2446; }
+.number { font-size: 19px; fill: #FFFFFF; }
+.arrow { fill: none; stroke: #665B61; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrowhead); }
+.leader { fill: none; stroke: #665B61; stroke-width: 2; stroke-dasharray: 6 5; }
+.line { fill: none; stroke: #665B61; stroke-width: 2; }
+.watermark { font-size: 12px; fill: #54494F; }</style><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#665B61" /></marker></defs><rect id="background" x="0" y="0" width="1200" height="800" fill="#F8F4EF" /><g id="artwork">
+  <g id="heading">
+    <text x="40" y="60" class="title">How a Harness saves, resumes, and delegates</text>
+    <text x="40" y="96" class="small">run() appends each message to a JSONL file as it lands. After a crash, resume() repairs the file and continues.</text>
+  </g>
+
+  <g id="run">
+    <rect x="40" y="124" width="346" height="340" rx="12" class="node" />
+    <rect x="40" y="124" width="346" height="44" rx="12" class="panel" />
+    <text x="56" y="154" class="label on-panel">run(task) &#183; writes</text>
+
+    <g id="run-step-1">
+      <rect x="56" y="184" width="314" height="84" rx="12" class="focus" />
+      <circle cx="84" cy="213" r="12" class="badge" />
+      <text x="84" y="220" class="number" text-anchor="middle">1</text>
+      <text x="106" y="221" class="label">newSession()</text>
+      <text x="72" y="252" class="small">on the first persisted run</text>
+    </g>
+
+    <g id="run-step-2">
+      <rect x="56" y="278" width="314" height="84" rx="12" class="focus" />
+      <circle cx="84" cy="307" r="12" class="badge" />
+      <text x="84" y="314" class="number" text-anchor="middle">2</text>
+      <text x="106" y="315" class="label">append() as it lands</text>
+      <text x="72" y="346" class="small">user, assistant, toolEnd</text>
+    </g>
+
+    <g id="run-step-3">
+      <rect x="56" y="372" width="314" height="84" rx="12" class="focus" />
+      <circle cx="84" cy="401" r="12" class="badge" />
+      <text x="84" y="408" class="number" text-anchor="middle">3</text>
+      <text x="106" y="409" class="label">compaction</text>
+      <text x="72" y="440" class="small">file keeps the full history</text>
+    </g>
+  </g>
+
+  <g id="session-file">
+    <rect x="427" y="124" width="346" height="340" rx="12" class="node" />
+    <rect x="427" y="124" width="346" height="44" rx="12" class="panel" />
+    <text x="443" y="154" class="label on-panel">.trace/sessions/*.jsonl</text>
+
+    <rect x="443" y="184" width="314" height="36" rx="8" class="node" />
+    <text x="459" y="209" class="small">user: the task</text>
+    <rect x="443" y="228" width="314" height="36" rx="8" class="node" />
+    <text x="459" y="253" class="small">assistant: write_file c1</text>
+    <rect x="443" y="272" width="314" height="36" rx="8" class="node" />
+    <text x="459" y="297" class="small">tool c1: Wrote part1.txt</text>
+    <rect x="443" y="316" width="314" height="36" rx="8" class="node" />
+    <text x="459" y="341" class="small">assistant: write_file c2</text>
+    <rect x="443" y="360" width="314" height="36" rx="8" class="highlight" />
+    <text x="459" y="385" class="small on-highlight">{"role":"tool","id":"c2","na</text>
+    <rect x="443" y="404" width="314" height="44" rx="8" class="focus" />
+    <text x="459" y="432" class="small">tool c2: Interrupted before...</text>
+  </g>
+
+  <g id="session-legend">
+    <text x="600" y="492" class="small" text-anchor="middle">orange: torn by kill -9, dropped &#183; last row: added by repair</text>
+  </g>
+
+  <g id="resume">
+    <rect x="814" y="124" width="346" height="340" rx="12" class="node" />
+    <rect x="814" y="124" width="346" height="44" rx="12" class="panel" />
+    <text x="830" y="154" class="label on-panel">resume() &#183; reads</text>
+
+    <g id="resume-step-a">
+      <rect x="830" y="184" width="314" height="84" rx="12" class="focus" />
+      <circle cx="858" cy="213" r="12" class="badge" />
+      <text x="858" y="220" class="number" text-anchor="middle">A</text>
+      <text x="880" y="221" class="label">latest()</text>
+      <text x="846" y="252" class="small">newest file by write time</text>
+    </g>
+
+    <g id="resume-step-b">
+      <rect x="830" y="278" width="314" height="84" rx="12" class="focus" />
+      <circle cx="858" cy="307" r="12" class="badge" />
+      <text x="858" y="314" class="number" text-anchor="middle">B</text>
+      <text x="880" y="315" class="label">load() and repair</text>
+      <text x="846" y="346" class="small">open call ids get a result</text>
+    </g>
+
+    <g id="resume-step-c">
+      <rect x="830" y="372" width="314" height="84" rx="12" class="focus" />
+      <circle cx="858" cy="401" r="12" class="badge" />
+      <text x="858" y="408" class="number" text-anchor="middle">C</text>
+      <text x="880" y="409" class="label">rewrite, then run()</text>
+      <text x="846" y="440" class="small">the log is clean again</text>
+    </g>
+  </g>
+
+  <g id="file-flow">
+    <path d="M386 318 H425" class="arrow" />
+    <path d="M773 318 H812" class="arrow" />
+  </g>
+
+  <g id="subagents">
+    <text x="40" y="540" class="section">spawn_agent: a child Harness with a clean context and no session file</text>
+
+    <rect x="40" y="562" width="208" height="96" rx="12" class="node" />
+    <text x="56" y="592" class="label">Parent turn</text>
+    <text x="56" y="620" class="small">calls spawn_agent</text>
+    <text x="56" y="644" class="small">with the full task</text>
+
+    <rect x="268" y="562" width="208" height="96" rx="12" class="highlight" />
+    <text x="284" y="592" class="label on-highlight">Depth check</text>
+    <text x="284" y="620" class="small on-highlight">at depth 2: ERROR,</text>
+    <text x="284" y="644" class="small on-highlight">do it yourself</text>
+
+    <rect x="496" y="562" width="208" height="96" rx="12" class="node" />
+    <text x="512" y="592" class="label">makeChild()</text>
+    <text x="512" y="620" class="small">same workdir,</text>
+    <text x="512" y="644" class="small">policy, model</text>
+
+    <rect x="724" y="562" width="208" height="96" rx="12" class="focus" />
+    <text x="740" y="592" class="label">child.run()</text>
+    <text x="740" y="620" class="small">fresh messages,</text>
+    <text x="740" y="644" class="small">persist: false</text>
+
+    <rect x="952" y="562" width="208" height="96" rx="12" class="node" />
+    <text x="968" y="592" class="label">Tool result</text>
+    <text x="968" y="620" class="small">the child's final</text>
+    <text x="968" y="644" class="small">report only</text>
+
+    <path d="M248 610 H266" class="arrow" />
+    <path d="M476 610 H494" class="arrow" />
+    <path d="M704 610 H722" class="arrow" />
+    <path d="M932 610 H950" class="arrow" />
+    <path d="M1056 658 V690 H144 V660" class="arrow" />
+    <text x="600" y="718" class="small" text-anchor="middle">the parent's context grows by one tool result</text>
+
+    <text x="40" y="756" class="small">Children never write a log, so resume() always finds the parent's session.</text>
+  </g>
+</g><g id="watermark"><text x="1176" y="776" class="watermark" text-anchor="end">Dipesh Walia</text></g></svg>

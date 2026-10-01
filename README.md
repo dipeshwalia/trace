@@ -121,3 +121,7 @@ bun scratch/fib.ts
 - [How AGENTS.md and skills reach the model](docs/agents-skills.svg): the two steps that load `AGENTS.md` into the system prompt, the two ways a skill enters a run, and how `use_skill` delivers a skill's text as a tool result.
 
 ![How AGENTS.md and skills reach the model](docs/agents-skills.svg)
+
+- [How a Harness saves, resumes, and delegates](docs/harness-sessions.svg): how `run()` appends each message to a session file, how `resume()` drops a torn line and answers interrupted tool calls by id, and how `spawn_agent` runs a task in a child harness that keeps no session file.
+
+![How a Harness saves, resumes, and delegates](docs/harness-sessions.svg)
