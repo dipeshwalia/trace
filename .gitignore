@@ -1,4 +1,5 @@
 __bun-cache__/
 node_modules/
 scratch/
+.trace/
 .DS_Store
