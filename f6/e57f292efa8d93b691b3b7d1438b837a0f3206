@@ -1,0 +1,26 @@
+README.md
+  s_7df71746b371c2::t_a9340ca7ce2773 183-186
+docs/cli-fleet.svg
+  s_7df71746b371c2::t_c674a1f99e7add 1-133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f6e57f292efa8d93b691b3b7d1438b837a0f3206",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_7df71746b371c2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "be04a9ce-4124-471e-8b3c-eac4423aa5b3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
