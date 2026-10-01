@@ -180,3 +180,7 @@ Each stage added a few files to `trace/` and one demo that checks them.
 - [How a Harness saves, resumes, and delegates](docs/harness-sessions.svg): how `run()` appends each message to a session file, how `resume()` drops a torn line and answers interrupted tool calls by id, and how `spawn_agent` runs a task in a child harness that keeps no session file.
 
 ![How a Harness saves, resumes, and delegates](docs/harness-sessions.svg)
+
+- [How the CLI and the fleet drive a Harness](docs/cli-fleet.svg): the three `bun run trace` forms and what `main()` does, how `runFleet` runs one harness per job and returns results in input order, and the build, review, and verify phases of `demos/5-fleet.ts`.
+
+![How the CLI and the fleet drive a Harness](docs/cli-fleet.svg)
