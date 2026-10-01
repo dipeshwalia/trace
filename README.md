@@ -17,6 +17,7 @@ Set `TRACE_MODEL` to use a model other than the default in `trace/provider.ts`.
 bun demos/1-dice.ts [basic | bad-args | parallel | turn-limit]
 bun demos/2-build.ts [fib | delete-home | delete-folder | escape]
 bun demos/3-context.ts [compact | remember | skill | learn | recall | agents | commit]
+bun demos/4-harness.ts [crash | resume | delegate]
 ```
 
 With no argument, each demo lists its scenarios and asks which one to run.
@@ -54,6 +55,23 @@ without. Both messages are kept, in
 `scratch/skill-compare/<time>/without/COMMIT_MSG.txt`, and printed side by
 side. Each run gets a new `<time>` folder, so earlier runs are kept.
 
+`4-harness.ts` works in `scratch/harness/`. A `Harness` writes every message
+to a session file in `.trace/sessions/` as soon as it arrives. To see a
+crash and a resume, run `crash`. After `part2.txt` appears and before
+`SUMMARY.md` does, stop it with `kill -9`. Then run `resume`. It loads the
+latest session, adds a notice for any tool call the kill interrupted, and
+finishes the task:
+
+```sh
+bun demos/4-harness.ts crash     # kill -9 the printed pid partway
+bun demos/4-harness.ts resume    # all six files exist at the end
+```
+
+`delegate` has two sub-agents write `utils.ts` and `test_utils.ts`, and the
+parent runs the tests itself. Sub-agents keep no session file, so
+`.trace/sessions/` holds only the parent's. `crash` and `delegate` empty
+`scratch/harness/` first, unless `TRACE_WORKDIR` is set.
+
 `2-build.ts` gives the agent files and a shell, confined to a fresh folder
 under the system temp directory; the path is printed as `workdir:`. To keep
 the files somewhere easy to find, set `TRACE_WORKDIR`:
@@ -75,6 +93,11 @@ bun scratch/fib.ts
 - `trace/context.ts`: compacts old messages into a summary when history goes over a token budget.
 - `trace/memory.ts`: builds the system prompt, reads `AGENTS.md`, and keeps project notes in `TRACE.md`.
 - `trace/skills.ts`: finds skills in `skills/<name>/SKILL.md` and gives the model a `use_skill` tool.
+- `trace/session.ts`: saves each message to a JSONL file and repairs the file after a crash.
+- `trace/subagent.ts`: the `spawn_agent` tool, which runs a task in a fresh child harness.
+- `trace/harness.ts`: the `Harness` class, which puts all of the above together for one working directory.
+- `trace/index.ts`: the public API: `Harness`, `Policy`, `tool`, and the `Tool` type.
+- `trace/cli.ts`: the `bun run trace` entry point; a stub until step 6.
 - `demos/`: runnable examples.
 
 ## Docs
