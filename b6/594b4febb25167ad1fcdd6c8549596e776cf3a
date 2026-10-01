@@ -1,0 +1,27 @@
+trace/index.ts
+  s_7df71746b371c2::t_dad2fe585529f3 5-7
+  s_7df71746b371c2::t_8b3dea993ad517 11
+trace/fleet.ts
+  s_7df71746b371c2::t_9850ab6e50b4cf 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b6594b4febb25167ad1fcdd6c8549596e776cf3a",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_7df71746b371c2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "be04a9ce-4124-471e-8b3c-eac4423aa5b3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
