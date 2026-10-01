@@ -36,7 +36,10 @@ export type Completion = {
 type WireToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
 type WireResponse = {
   model?: string;
-  choices?: { message?: { content?: string | null; tool_calls?: WireToolCall[]; reasoning_details?: unknown[] } }[];
+  choices?: {
+    finish_reason?: string | null;
+    message?: { content?: string | null; tool_calls?: WireToolCall[]; reasoning_details?: unknown[] };
+  }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   error?: { message?: string };
 };
@@ -120,7 +123,12 @@ async function attempt(body: object): Promise<Attempt> {
     if (err instanceof TypeError || (err as Error)?.name === "TimeoutError") return { retry: err };
     throw err;
   }
-  if (res.ok) return { done: (await res.json()) as WireResponse };
+  if (res.ok) {
+    const data = (await res.json()) as WireResponse;
+    // An upstream failure mid-generation arrives as a 200 with an empty message; it is not an answer.
+    if (data.choices?.[0]?.finish_reason === "error") return { retry: new Error("OpenRouter: the model failed mid-generation (finish_reason error)") };
+    return { done: data };
+  }
   const error = new Error(`OpenRouter HTTP ${res.status}: ${(await res.text()).slice(0, 400)}`);
   if (RETRY_STATUSES.has(res.status)) return { retry: error };
   throw error;
