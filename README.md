@@ -155,7 +155,9 @@ Each stage added a few files to `trace/` and one demo that checks them.
 | 4. Harness | `session.ts`, `subagent.ts`, `harness.ts`, `index.ts` | JSONL sessions with crash repair. The `spawn_agent` tool. The `Harness` class that puts it all together. The public API. Demo: `4-harness.ts`. |
 | 5. Product | `cli.ts`, `fleet.ts` | The `bun run trace` command line (headless, interactive, resume) and `runFleet`, which runs many harnesses at once. Demo: `5-fleet.ts`. |
 
-## Next steps: loop engineering
+## Next steps: loop and graph engineering
+
+### Loop engineering
 
 Trace is the harness: one agent that can work safely, save its session, and
 pick up where it stopped. Loop engineering is the layer on top. A loop
@@ -186,6 +188,40 @@ Autonomy should grow with the gate's record: `read-only` to report,
 for a while. The gate and the autonomy levels follow
 [cobusgreyling/loop-engineering](https://github.com/cobusgreyling/loop-engineering).
 
+### Graph engineering
+
+A loop runs one agent again and again until a check passes. A graph
+arranges many runs: each node is a harness run with its own role and
+skills, each edge says what runs next and on what condition, and the nodes
+share state. A loop is the smallest graph, with one node and an edge back
+to itself. Graph engineering also optimizes the graph. It runs independent
+nodes in parallel, removes steps that do not help, and rewires the graph
+based on results.
+
+![Where Trace sits: from model to system intelligence](docs/graph-engineering.svg)
+
+What Trace has today, and the next step for each part:
+
+- Tasks: today `demos/5-fleet.ts` is a fixed graph of build, review,
+  verify, and retry. Next is a `trace/graph.ts` that runs a graph from a
+  file, with one `Harness` per node and gate results on the edges.
+- Agents: today `spawn_agent` delegates one task, and `runFleet` runs
+  independent jobs in parallel. Next is roles per node, such as planner,
+  builder, and reviewer.
+- State: today each run has a session file, and `resume()` restarts it.
+  Next is shared state for the whole graph, so a restarted graph skips the
+  nodes that already passed.
+- Optimize: next is a record of turns, cost, and pass rate per node, then
+  changes to the graph based on that record, such as running nodes in
+  parallel or skipping a review that never finds anything.
+- Ontology: next is a shared set of terms (customer, order, campaign) that
+  every skill uses, so nodes pass data to each other without confusion.
+
+The three levels follow
+[DEEP-JLU/Awesome-Graph-Engineering](https://github.com/DEEP-JLU/Awesome-Graph-Engineering),
+which also lists graph libraries such as LangGraph, Google ADK, AutoGen
+GraphFlow, CrewAI, and Mastra.
+
 ## Docs
 
 - [How a Trace run works, end to end](docs/end-to-end.svg): setup in a demo, the `runLoop` cycle with compaction and the policy check, the observers, how a run ends, and where state lives.
@@ -215,3 +251,7 @@ for a while. The gate and the autonomy levels follow
 - [How the CLI and the fleet drive a Harness](docs/cli-fleet.svg): the three `bun run trace` forms and what `main()` does, how `runFleet` runs one harness per job and returns results in input order, and the build, review, and verify phases of `demos/5-fleet.ts`.
 
 ![How the CLI and the fleet drive a Harness](docs/cli-fleet.svg)
+
+- [Where Trace sits: from model to system intelligence](docs/graph-engineering.svg): the three levels from the graph engineering survey, what Trace has built at each level, and what graph engineering adds on top of the loop.
+
+![Where Trace sits: from model to system intelligence](docs/graph-engineering.svg)
