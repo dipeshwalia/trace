@@ -1,0 +1,29 @@
+demos/4-harness.ts
+  s_7df71746b371c2::t_b7aa5b3d3cf674 10
+  s_7df71746b371c2::t_6e82338bc0e671 1-9,11-103
+README.md
+  s_7df71746b371c2::t_e2745cfb12ec10 20
+  s_7df71746b371c2::t_54d93189305b35 96-100
+  s_7df71746b371c2::t_e87f50d6be3728 58-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "91431e0982a6942ee5139cd5c5c7fa28d97a228a",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_7df71746b371c2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "be04a9ce-4124-471e-8b3c-eac4423aa5b3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
