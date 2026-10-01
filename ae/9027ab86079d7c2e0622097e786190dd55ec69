@@ -1,0 +1,28 @@
+docs/graph-engineering.svg
+  s_7df71746b371c2::t_0b634899675767 1-94
+README.md
+  s_7df71746b371c2::t_aa45de7d487634 191-224
+  s_7df71746b371c2::t_2cc2843eaec465 254-257
+  s_7df71746b371c2::t_2770e20d483f94 158-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ae9027ab86079d7c2e0622097e786190dd55ec69",
+  "prompts": {},
+  "humans": {
+    "h_43702bfdbafe7b": {
+      "author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  },
+  "sessions": {
+    "s_7df71746b371c2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "be04a9ce-4124-471e-8b3c-eac4423aa5b3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "dipesh <dipesh.walia@b-yond.com>"
+    }
+  }
+}
