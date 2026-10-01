@@ -1,6 +1,9 @@
 # Trace
 
-A small agent harness in TypeScript on Bun. It talks to models through OpenRouter.
+Trace is a small agent harness in TypeScript on Bun. Each concept lives in
+its own file under `trace/`: the model call, the loop, tools, safety,
+context, memory, skills, sessions, sub-agents, and a fleet runner. It has no
+runtime dependencies beyond Bun and talks to models through OpenRouter.
 
 ## Setup
 
@@ -11,6 +14,45 @@ export TRACE_API_KEY=...   # an OpenRouter key; OPENROUTER_API_KEY also works
 
 Set `TRACE_MODEL` to use a model other than the default in `trace/provider.ts`.
 
+## Run it
+
+```sh
+bun run trace                        # interactive prompt loop in the current folder
+bun run trace -p "add a test for x"  # run one task headless, then exit
+bun run trace --resume               # continue the latest session in the folder
+```
+
+The agent works only inside its folder, called the jail. `-d` sets it (the
+default is `.`). `-m` picks the model and `--max-turns` caps each task
+(default 120). `--mode` is `read-only`, `safe`, or `yolo`. Interactive runs
+default to `safe`, which asks `approve ...? [y/N]` before each write or
+shell command. Headless runs default to `yolo`, where only the deny list,
+the path check, and the bash sandbox apply. Every message goes to
+`.trace/sessions/` as it arrives. If you press Ctrl-C during a run, the
+session is kept, and `--resume` picks it up.
+
+## Use it from code
+
+A `Harness` puts the parts together for one folder. Pass your own tools in
+`extraTools`:
+
+```ts
+import { Harness, Policy, tool } from "./trace/index.ts";
+
+const wordCount = tool({
+  name: "word_count",
+  description: "Count the words in a piece of text",
+  params: { text: { description: "The text to count" } },
+  run: ({ text }) => String(String(text).split(/\s+/).filter(Boolean).length),
+});
+
+const harness = new Harness({ workdir: "scratch/demo", policy: new Policy("yolo"), extraTools: { word_count: wordCount } });
+console.log(await harness.run("How many words are in 'the quick brown fox'? Use word_count."));
+```
+
+`runFleet(jobs, makeHarness, maxWorkers)` runs many such harnesses at once
+and returns one `{ name, ok, report }` per job, in input order.
+
 ## Demos
 
 ```sh
@@ -18,6 +60,7 @@ bun demos/1-dice.ts [basic | bad-args | parallel | turn-limit]
 bun demos/2-build.ts [fib | delete-home | delete-folder | escape]
 bun demos/3-context.ts [compact | remember | skill | learn | recall | agents | commit]
 bun demos/4-harness.ts [crash | resume | delegate]
+bun demos/5-fleet.ts [all | artisan-coffee | taskman | viper | review | verify]
 ```
 
 With no argument, each demo lists its scenarios and asks which one to run.
@@ -72,6 +115,23 @@ parent runs the tests itself. Sub-agents keep no session file, so
 `.trace/sessions/` holds only the parent's. `crash` and `delegate` empty
 `scratch/harness/` first, unless `TRACE_WORKDIR` is set.
 
+`5-fleet.ts` uses `runFleet` to build three projects side by side, each in
+its own folder under `scratch/fleet/`. `artisan-coffee` is a coffee roaster
+landing page, `taskman` is a task manager CLI with a `bun test` suite, and
+`viper` is a canvas snake game. Each folder gets a `design-engineering`
+skill that sets the quality bar. After the build, a second phase resumes the
+same session for a design-director review. Mechanical checks then decide
+pass or fail, such as `bun test` for taskman and a count of visible words
+for the landing page. A project that fails gets one more review pass, and
+the run ends with a results table. `review` runs another pass on projects
+already built, and `verify` only checks them:
+
+```sh
+bun demos/5-fleet.ts all              # build, review, check; takes several minutes
+bun demos/5-fleet.ts review viper     # one more review pass on one project
+bun demos/5-fleet.ts verify           # checks and the results table, no model calls
+```
+
 `2-build.ts` gives the agent files and a shell, confined to a fresh folder
 under the system temp directory; the path is printed as `workdir:`. To keep
 the files somewhere easy to find, set `TRACE_WORKDIR`:
@@ -83,22 +143,17 @@ bun scratch/fib.ts
 
 `scratch/` is ignored by git.
 
-## Layout
+## Anatomy
 
-- `trace/provider.ts`: the only code that talks to OpenRouter.
-- `trace/loop.ts`: the agent loop. It asks the model, runs tools, and feeds results back.
-- `trace/logger.ts`: prints loop events with colors, a spinner, and usage and cost.
-- `trace/tools.ts`: the core tools (files, edits, shell, search), confined to a working directory.
-- `trace/security.ts`: the policy that blocks dangerous tool calls.
-- `trace/context.ts`: compacts old messages into a summary when history goes over a token budget.
-- `trace/memory.ts`: builds the system prompt, reads `AGENTS.md`, and keeps project notes in `TRACE.md`.
-- `trace/skills.ts`: finds skills in `skills/<name>/SKILL.md` and gives the model a `use_skill` tool.
-- `trace/session.ts`: saves each message to a JSONL file and repairs the file after a crash.
-- `trace/subagent.ts`: the `spawn_agent` tool, which runs a task in a fresh child harness.
-- `trace/harness.ts`: the `Harness` class, which puts all of the above together for one working directory.
-- `trace/index.ts`: the public API: `Harness`, `Policy`, `tool`, and the `Tool` type.
-- `trace/cli.ts`: the `bun run trace` entry point; a stub until step 6.
-- `demos/`: runnable examples.
+Each stage added a few files to `trace/` and one demo that checks them.
+
+| Stage | Files added | What it adds |
+| --- | --- | --- |
+| 1. Loop | `provider.ts`, `loop.ts`, `logger.ts` | One request function for OpenRouter. The turn cycle: ask the model, run the tools it calls, feed results back. Colored logs with usage and cost. Demo: `1-dice.ts`. |
+| 2. Tools | `tools.ts`, `security.ts`, `web.ts` | Six core tools (read, write, edit, bash, list, grep) confined to one folder. A policy with a deny list and three modes. A live web view. Demo: `2-build.ts`. |
+| 3. Context | `context.ts`, `memory.ts`, `skills.ts` | Compaction when history goes over a token budget. The system prompt with `AGENTS.md` and `TRACE.md` memory. Skills loaded on demand with `use_skill`. Demo: `3-context.ts`. |
+| 4. Harness | `session.ts`, `subagent.ts`, `harness.ts`, `index.ts` | JSONL sessions with crash repair. The `spawn_agent` tool. The `Harness` class that puts it all together. The public API. Demo: `4-harness.ts`. |
+| 5. Product | `cli.ts`, `fleet.ts` | The `bun run trace` command line (headless, interactive, resume) and `runFleet`, which runs many harnesses at once. Demo: `5-fleet.ts`. |
 
 ## Docs
 
