@@ -44,7 +44,7 @@ type WireResponse = {
   error?: { message?: string };
 };
 
-const RETRY_STATUSES = new Set([429, 500, 502, 503]);
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 /** Return the OpenRouter key from TRACE_API_KEY, falling back to OPENROUTER_API_KEY. */
 export function apiKey(): string {
