@@ -13,5 +13,6 @@
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true
-  }
+  },
+  "exclude": ["scratch", "node_modules"]
 }
