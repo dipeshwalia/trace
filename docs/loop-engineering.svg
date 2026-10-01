@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc"><title id="title">From skills to an always-running customer workflow</title><desc id="desc">Triggers start work. A router picks skills such as marketing, sales, support, finance, ops, and code. The Trace harness does the work with tools, policy, sessions, and sub-agents. A loop gate checks the result with code: pass reports it, fail reruns with the failure fed back, and over budget hands off to a person. Each result or failure becomes the next trigger. A bottom row compares what Trace has today with the next steps: cron and webhooks, an explicit router with skill packs, a session per customer, and a gate with --until and a cost cap. Gate and autonomy levels follow github.com/cobusgreyling/loop-engineering.</desc><metadata id="illustration-style">{"canvas": {"height": 800, "width": 1200}, "fonts": {"display": "Georgia", "labels": "Arial"}, "profile": "plum-apricot", "profile_sha256": "c9eaf17798100dfaf4123094d3d3b1e35a319ef81105a348288f919b4d91d8e6", "profile_version": "1.2", "style_version": 1, "theme": "light"}</metadata><defs><style id="brand-style">text { font-family: 'Arial'; font-size: 24px; fill: #231B21; }
+.title { font-family: 'Georgia'; font-size: 40px; font-weight: 400; }
+.label { font-size: 24px; }
+.small { font-size: 20px; fill: #54494F; }
+.note { font-size: 21px; }
+.section { font-size: 24px; font-weight: 600; fill: #4A2446; }
+.node { fill: #FFFFFF; stroke: #665B61; stroke-width: 2; }
+.focus { fill: #F1E3EF; stroke: #4A2446; stroke-width: 2.5; }
+.highlight { fill: #F2A97A; stroke: #4A2446; stroke-width: 2.5; }
+.panel { fill: #4A2446; stroke: #4A2446; stroke-width: 2; }
+.on-panel { fill: #FFFFFF; }
+.on-highlight { fill: #231B21; }
+.badge { fill: #4A2446; }
+.number { font-size: 19px; fill: #FFFFFF; }
+.arrow { fill: none; stroke: #665B61; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrowhead); }
+.leader { fill: none; stroke: #665B61; stroke-width: 2; stroke-dasharray: 6 5; }
+.line { fill: none; stroke: #665B61; stroke-width: 2; }
+.watermark { font-size: 12px; fill: #54494F; }</style><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#665B61" /></marker></defs><rect id="background" x="0" y="0" width="1200" height="800" fill="#F8F4EF" /><g id="artwork">
+  <g id="heading">
+    <text x="40" y="60" class="title">From skills to an always-running customer workflow</text>
+    <text x="40" y="96" class="small">A router picks skills, the harness does the work, and a loop checks it and feeds the result back as the next trigger.</text>
+  </g>
+
+  <g id="triggers">
+    <rect x="40" y="124" width="256" height="332" rx="12" class="node" />
+    <rect x="40" y="124" width="256" height="44" rx="12" class="panel" />
+    <text x="56" y="154" class="label on-panel">1 Triggers</text>
+    <rect x="56" y="184" width="224" height="56" rx="10" class="node" />
+    <text x="72" y="220" class="label">schedule</text>
+    <rect x="56" y="250" width="224" height="56" rx="10" class="node" />
+    <text x="72" y="286" class="label">customer event</text>
+    <rect x="56" y="316" width="224" height="56" rx="10" class="node" />
+    <text x="72" y="352" class="label">new message</text>
+    <rect x="56" y="382" width="224" height="56" rx="10" class="highlight" />
+    <text x="72" y="418" class="label on-highlight">check failed</text>
+  </g>
+
+  <g id="router">
+    <rect x="328" y="124" width="256" height="332" rx="12" class="node" />
+    <rect x="328" y="124" width="256" height="44" rx="12" class="panel" />
+    <text x="344" y="154" class="label on-panel">2 Router + skills</text>
+    <rect x="344" y="184" width="224" height="56" rx="10" class="focus" />
+    <text x="360" y="220" class="label">picks the skills</text>
+    <rect x="344" y="252" width="108" height="44" rx="8" class="node" />
+    <text x="356" y="281" class="small">marketing</text>
+    <rect x="460" y="252" width="108" height="44" rx="8" class="node" />
+    <text x="472" y="281" class="small">sales</text>
+    <rect x="344" y="304" width="108" height="44" rx="8" class="node" />
+    <text x="356" y="333" class="small">support</text>
+    <rect x="460" y="304" width="108" height="44" rx="8" class="node" />
+    <text x="472" y="333" class="small">finance</text>
+    <rect x="344" y="356" width="108" height="44" rx="8" class="node" />
+    <text x="356" y="385" class="small">ops</text>
+    <rect x="460" y="356" width="108" height="44" rx="8" class="node" />
+    <text x="472" y="385" class="small">code</text>
+    <text x="344" y="434" class="small">each one a SKILL.md</text>
+  </g>
+
+  <g id="harness">
+    <rect x="616" y="124" width="256" height="332" rx="12" class="node" />
+    <rect x="616" y="124" width="256" height="44" rx="12" class="panel" />
+    <text x="632" y="154" class="label on-panel">3 Harness (Trace)</text>
+    <rect x="632" y="184" width="224" height="56" rx="10" class="focus" />
+    <text x="648" y="220" class="label">Harness.run()</text>
+    <rect x="632" y="250" width="224" height="56" rx="10" class="focus" />
+    <text x="648" y="286" class="label">tools + policy</text>
+    <rect x="632" y="316" width="224" height="56" rx="10" class="focus" />
+    <text x="648" y="352" class="label">session per run</text>
+    <rect x="632" y="382" width="224" height="56" rx="10" class="focus" />
+    <text x="648" y="418" class="label">sub-agents</text>
+  </g>
+
+  <g id="loop">
+    <rect x="904" y="124" width="256" height="332" rx="12" class="node" />
+    <rect x="904" y="124" width="256" height="44" rx="12" class="panel" />
+    <text x="920" y="154" class="label on-panel">4 Loop: gate</text>
+    <rect x="920" y="184" width="224" height="56" rx="10" class="highlight" />
+    <text x="936" y="220" class="label on-highlight">code checks result</text>
+    <rect x="920" y="250" width="224" height="56" rx="10" class="node" />
+    <text x="936" y="286" class="label">pass: report</text>
+    <rect x="920" y="316" width="224" height="56" rx="10" class="node" />
+    <text x="936" y="352" class="label">fail: rerun</text>
+    <rect x="920" y="382" width="224" height="56" rx="10" class="node" />
+    <text x="936" y="418" class="label">budget: a person</text>
+  </g>
+
+  <g id="flow">
+    <path d="M296 290 H326" class="arrow" />
+    <path d="M584 290 H614" class="arrow" />
+    <path d="M872 290 H902" class="arrow" />
+    <path d="M1032 456 V488 H168 V458" class="arrow" />
+    <text x="600" y="518" class="small" text-anchor="middle">feedback loop: each result or failure becomes the next trigger, so the workflow keeps running</text>
+  </g>
+
+  <g id="today-next">
+    <text x="40" y="566" class="section">What Trace has today, and the next step for each part</text>
+
+    <rect x="40" y="584" width="256" height="146" rx="12" class="node" />
+    <text x="56" y="612" class="label">Today</text>
+    <text x="56" y="638" class="small">a person runs</text>
+    <text x="56" y="662" class="small">bun run trace</text>
+    <text x="56" y="694" class="label">Next</text>
+    <text x="56" y="720" class="small">cron, webhooks</text>
+
+    <rect x="328" y="584" width="256" height="146" rx="12" class="node" />
+    <text x="344" y="612" class="label">Today</text>
+    <text x="344" y="638" class="small">skills.ts catalog;</text>
+    <text x="344" y="662" class="small">the model picks</text>
+    <text x="344" y="694" class="label">Next</text>
+    <text x="344" y="720" class="small">router + skill packs</text>
+
+    <rect x="616" y="584" width="256" height="146" rx="12" class="node" />
+    <text x="632" y="612" class="label">Today</text>
+    <text x="632" y="638" class="small">Harness, sessions,</text>
+    <text x="632" y="662" class="small">runFleet</text>
+    <text x="632" y="694" class="label">Next</text>
+    <text x="632" y="720" class="small">a session per customer</text>
+
+    <rect x="904" y="584" width="256" height="146" rx="12" class="highlight" />
+    <text x="920" y="612" class="label on-highlight">Today</text>
+    <text x="920" y="638" class="small on-highlight">5-fleet checks,</text>
+    <text x="920" y="662" class="small on-highlight">one retry</text>
+    <text x="920" y="694" class="label on-highlight">Next</text>
+    <text x="920" y="720" class="small on-highlight">gate, --until, cost cap</text>
+
+    <text x="40" y="760" class="small">Autonomy grows with the gate's record: read-only reports, safe asks, yolo runs unattended.</text>
+    <text x="40" y="784" class="small">Gate and autonomy levels follow github.com/cobusgreyling/loop-engineering.</text>
+  </g>
+</g><g id="watermark"><text x="1176" y="776" class="watermark" text-anchor="end">Dipesh Walia</text></g></svg>

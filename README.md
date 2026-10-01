@@ -155,6 +155,37 @@ Each stage added a few files to `trace/` and one demo that checks them.
 | 4. Harness | `session.ts`, `subagent.ts`, `harness.ts`, `index.ts` | JSONL sessions with crash repair. The `spawn_agent` tool. The `Harness` class that puts it all together. The public API. Demo: `4-harness.ts`. |
 | 5. Product | `cli.ts`, `fleet.ts` | The `bun run trace` command line (headless, interactive, resume) and `runFleet`, which runs many harnesses at once. Demo: `5-fleet.ts`. |
 
+## Next steps: loop engineering
+
+Trace is the harness: one agent that can work safely, save its session, and
+pick up where it stopped. Loop engineering is the layer on top. A loop
+finds work, gives it to the harness, checks the result with code, and
+either reports the result, feeds the failure back for another run, or hands
+the work to a person when the budget is spent. Add a router that picks from
+a library of skills, such as marketing, sales, support, finance, ops, and
+code, and the workflow keeps running for each customer, with every result
+or failure starting the next run.
+
+![From skills to an always-running customer workflow](docs/loop-engineering.svg)
+
+What Trace has today, and the next step for each part:
+
+- Triggers: today a person runs `bun run trace`. Next is a schedule (cron)
+  and webhooks that call `bun run trace -p`.
+- Router and skills: today `skills.ts` lists the skills and the model picks
+  one with `use_skill`. Next is an explicit router and packs of skills.
+- Harness: today `Harness`, sessions, and `runFleet`. Next is one long-lived
+  session per customer.
+- Gate: today only `demos/5-fleet.ts` checks results, with one extra review
+  pass. Next is a reusable `trace/gate.ts` that reads checks from a file, a
+  `--until` option that reruns a task until the gate passes, and a cost cap,
+  since the meter in `loop.ts` already tracks cost.
+
+Autonomy should grow with the gate's record: `read-only` to report,
+`safe` to ask before acting, and `yolo` only once the gate has been right
+for a while. The gate and the autonomy levels follow
+[cobusgreyling/loop-engineering](https://github.com/cobusgreyling/loop-engineering).
+
 ## Docs
 
 - [How a Trace run works, end to end](docs/end-to-end.svg): setup in a demo, the `runLoop` cycle with compaction and the policy check, the observers, how a run ends, and where state lives.
